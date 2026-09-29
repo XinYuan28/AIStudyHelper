@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>AI Study Note Helper</title>
+
+        <!-- GOOGLE FONTS -->
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Irish+Grover&family=Itim&display=swap" rel="stylesheet">
+
+        <!-- CSS -->
+        <link rel="stylesheet" href="index.css">
+
+        <!-- FAVICON -->
+        <link rel="icon" type="image/png" href="Images/AISNH_Cat coloredlogo(S).png">
+    </head>
+
+    <body>
+
+        <!-- NAV BAR -->
+        <header class="nav" id="top">
+            <nav class="nav-links">
+                <a href="index.html">
+                    <img src="Images/AISNH_Cat coloredlogo(S).png" alt="AI Study Note Helper" class="logo">
+                </a>
+                <a href="#features">Our Features</a>
+                <a href="#how">How it Works</a>
+            </nav>
+            <div class="nav-right">
+                <a href="dashboard.html" class="btn-outline">Dashboard</a>
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- HERO SECTION-->
+        <section class="hero">
+            <div class="blob blob-pink"></div>
+            <div class="blob blob-yellow-lg"></div>
+            <div class="blob blob-yellow-sm"></div>
+
+            <div class="hero-text">
+                <h1>Welcome to your<br>AI Study Note Helper</h1>
+                <a href="#signup" class="btn-soft">Start study!</a>
+            </div>
+
+            <form class="signup" id="signup" onsubmit="return false;">
+                <h2>Start Studying for free✦</h2>
+                <label for="email">Email</label>
+                <input type="email" id="email" placeholder="hello@mail.com" required>
+                <label for="password">Password</label>
+                <div class="pw-wrap">
+                    <input type="password" id="password" placeholder="Please enter your password" required>
+                    <button type="button" class="eye" id="togglePw" aria-label="Show password">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                            <circle cx="12" cy="12" r="3" />
+                        </svg>
+                    </button>
+                </div>
+                <div class="divider"><span>Already a user? <a href="login.html">Login!</a></span></div>
+                <button type="submit" class="btn-solid">I'm in! ᵔᴥᵔ</button>
+            </form>
+        </section>
+
+        <!-- WHY US -->
+        <section class="why">
+            <h2 class="title pink">Why us?</h2>
+            <div class="arches">
+                <article class="arch">
+                    <h3>Notes Summary</h3>
+                    <p>Generate your study materials into notes</p>
+                    <img src="Images/notes_summary.PNG" alt="Open notebook with a flower" class="doodle">
+                </article>
+                <article class="arch">
+                    <h3>Game Quizzes</h3>
+                    <p>Not only boring quizzes, but quizzes on game!</p>
+                    <img src="Images/game_quizzes.PNG" alt="Game controller" class="doodle">
+                </article>
+                <article class="arch">
+                    <h3>Text-to-Speech</h3>
+                    <p>Turn your notes into audio, so you can hear it anywhere</p>
+                    <img src="Images/text-to-speech.PNG" alt="Face speaking" class="doodle">
+                </article>
+                <article class="arch">
+                    <h3>Study Reminders</h3>
+                    <p>Remind you to study and complete your goal!</p>
+                    <img src="Images/study_reminder.PNG" alt="Alarm clock" class="doodle">
+                </article>
+            </div>
+        </section>
+
+        <!-- FEATURES -->
+        <section class="features" id="features">
+            <h2 class="title gold">Our Features</h2>
+            <div class="feature-grid">
+                <div class="fcard c1"><span class="dot"></span>
+                    <div>
+                        <h4>Text-to-Speech</h4><small>Description</small>
+                    </div>
+                </div>
+                <div class="fcard c2"><span class="dot"></span>
+                    <div>
+                        <h4>Upload Study Materials</h4><small>Description</small>
+                    </div>
+                </div>
+                <div class="fcard c3"><span class="dot"></span>
+                    <div>
+                        <h4>Customizable Quiz</h4><small>Description</small>
+                    </div>
+                </div>
+                <div class="fcard c4"><span class="dot"></span>
+                    <div>
+                        <h4>Generate Study Notes</h4><small>Description</small>
+                    </div>
+                </div>
+                <div class="fcard c5"><span class="dot"></span>
+                    <div>
+                        <h4>Gamification Quiz</h4><small>Description</small>
+                    </div>
+                </div>
+                <div class="fcard c6"><span class="dot"></span>
+                    <div>
+                        <h4>Study Reminder</h4><small>Description</small>
+                    </div>
+                </div>
+                <div class="fcard c7"><span class="dot"></span>
+                    <div>
+                        <h4>Analyze Quiz Result</h4><small>Description</small>
+                    </div>
+                </div>
+
+                <img src="Images/Features flower.PNG" alt="" class="flower" aria-hidden="true">
+            </div>
+        </section>
+
+        <!-- HOW IT WORKS -->
+        <section class="how" id="how">
+            <h2 class="title pink">How it Works?</h2>
+            <div class="carousel-shadow">
+                <div class="carousel">
+                    <button class="arrow left" id="prev" aria-label="Previous">&#10094;</button>
+                    <div class="slides" id="slides">
+                        <figure class="slide active">
+                            <img src="https://picsum.photos/id/1018/1200/600" alt="Placeholder screenshot 1">
+                            <figcaption><b>Upload Materials</b><br>Description of materials upload</figcaption>
+                        </figure>
+                        <figure class="slide">
+                            <img src="https://picsum.photos/id/1039/1200/600" alt="Placeholder screenshot 2">
+                            <figcaption><b>Gamification Quiz</b><br>Description of gamification quizzes</figcaption>
+                        </figure>
+                        <figure class="slide">
+                            <img src="https://picsum.photos/id/1043/1200/600" alt="Placeholder screenshot 3">
+                            <figcaption><b>Text-to-Speech</b><br>Description of text-to-speech</figcaption>
+                        </figure>
+                    </div>
+                    <button class="arrow right" id="next" aria-label="Next">&#10095;</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- FAQS -->
+        <section class="faq">
+            <h2 class="title pink">FAQs</h2>
+            <div class="faq-list">
+                <details>
+                    <summary>Question 1 ...</summary>
+                    <p>Answer</p>
+                </details>
+                <details>
+                    <summary>Question 2 ...</summary>
+                    <p>Answer</p>
+                </details>
+                <details>
+                    <summary>Question 3 ...</summary>
+                    <p>Answer</p>
+                </details>
+                <details>
+                    <summary>Question 4 ...</summary>
+                    <p>Answer</p>
+                </details>
+                <details>
+                    <summary>Question 5 ...</summary>
+                    <p>Answer</p>
+                </details>
+                <details>
+                    <summary>Question 6 ...</summary>
+                    <p>Answer</p>
+                </details>
+            </div>
+        </section>
+
+        <!-- FOOTER -->
+        <footer class="footer">
+            <div class="footer-inner">
+                <div class="footer-brand">
+                    <h3>AI Study Note Helper</h3>
+                    <p>Turn your notes into summaries, audio and quizzes that feel like play.</p>
+                </div>
+                <div class="footer-col">
+                    <h4>Explore</h4>
+                    <a href="#features">Our Features</a>
+                    <a href="#how">How it Works</a>
+                    <a href="#signup">Sign up</a>
+                </div>
+                <div class="footer-col">
+                    <h4>Help</h4>
+                    <a href="#">FAQs</a>
+                    <a href="#">Contact us</a>
+                    <a href="#">Privacy policy</a>
+                </div>
+            </div>
+            <p class="footer-bottom">© 2026 AI Study Note Helper. </p>
+        </footer>
+
+        <script>
+            // Password show/hide
+            const pw = document.getElementById('password');
+            document.getElementById('togglePw').addEventListener('click', () => {
+                pw.type = pw.type === 'password' ? 'text' : 'password';
+            });
+
+            // Dark mode
+            const root = document.documentElement;
+            if (localStorage.getItem('theme') === 'dark') root.setAttribute('data-theme', 'dark');
+            document.getElementById('themeToggle').addEventListener('click', () => {
+                const dark = root.getAttribute('data-theme') === 'dark';
+                dark ? root.removeAttribute('data-theme') : root.setAttribute('data-theme', 'dark');
+                localStorage.setItem('theme', dark ? 'light' : 'dark');
+            });
+
+            // Carousel
+            const slides = document.querySelectorAll('.slide');
+            let i = 0;
+            function show(n) {
+                slides[i].classList.remove('active');
+                i = (n + slides.length) % slides.length;
+                slides[i].classList.add('active');
+            }
+            document.getElementById('prev').addEventListener('click', () => show(i - 1));
+            document.getElementById('next').addEventListener('click', () => show(i + 1));
+        </script>
+    </body>
+
+</html>
