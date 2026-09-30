@@ -367,7 +367,7 @@ h4 {
 .doodle {
     margin-top: 1.5rem;
     width: 100%;
-    max-width: 130px;
+    max-width: 100px;
     height: auto;
     align-self: flex-end;
 }
