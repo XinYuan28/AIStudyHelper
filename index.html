@@ -30,7 +30,10 @@
                 <a href="#how">How it Works</a>
             </nav>
             <div class="nav-right">
-                <a href="dashboard.html" class="btn-outline">Dashboard</a>
+                <!-- Logged out: Log in + Get started. After login, swap these two for:
+                     <a href="studyhub.html" class="btn-fill">Go to Study Hub</a> -->
+                <a href="login.html" class="btn-outline">Log in</a>
+                <a href="#signup" class="btn-fill">Get started</a>
                 <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
                         stroke-linecap="round" stroke-linejoin="round">
@@ -70,6 +73,31 @@
                 <div class="divider"><span>Already a user? <a href="login.html">Login!</a></span></div>
                 <button type="submit" class="btn-solid">Create account</button>
             </form>
+        </section>
+
+        <!-- DEMO PREVIEW -->
+        <section class="demo-sec" id="demo">
+            <h2 class="title">See it in action</h2>
+            <p class="demo-lead">Drop in your materials and get notes, quizzes, audio and reminders in seconds.</p>
+            <div class="demo">
+                <div class="demo-top"><i></i><i></i><i></i><span>Study Hub</span></div>
+                <div class="demo-body">
+                    <div class="demo-left">
+                        <div class="dropbox"><b>Drop files here</b>PDFs, slides and recordings</div>
+                        <div class="file"><em>DOCX</em>Syllabus.docx<span class="status">Ready</span></div>
+                        <div class="file"><em>PDF</em>Lecture 1 Slides.pdf<span class="status">Ready</span></div>
+                        <div class="file"><em>MP3</em>Lecture Recording<span class="status">Ready</span></div>
+                        <button type="button" class="btn-solid demo-btn" id="demoBtn">Generate study materials</button>
+                    </div>
+                    <div class="demo-results" id="demoResults" aria-live="polite">
+                        <div class="rcard"><span class="ricon"></span><b>Notes summary</b><small>Key points in clear notes</small></div>
+                        <div class="rcard"><span class="ricon"></span><b>Game quiz</b><small>10 questions ready</small></div>
+                        <div class="rcard"><span class="ricon"></span><b>Text-to-speech</b><small>Listen to your notes</small></div>
+                        <div class="rcard"><span class="ricon"></span><b>Study reminder</b><small>Set your study goal</small></div>
+                    </div>
+                </div>
+            </div>
+            <p class="demo-note">Sample preview with example files.</p>
         </section>
 
         <!-- WHY US -->
@@ -223,7 +251,7 @@
                     <a href="#">Privacy policy</a>
                 </div>
             </div>
-            <p class="footer-bottom">© 2026 AI Study Note Helper. </p>
+            <p class="footer-bottom">&copy; <span id="year"></span> AI Study Note Helper. All rights reserved.</p>
         </footer>
 
         <script>
@@ -242,6 +270,23 @@
                 localStorage.setItem('theme', dark ? 'light' : 'dark');
             });
 
+            // Demo preview
+            const demoBtn = document.getElementById('demoBtn');
+            const demoResults = document.getElementById('demoResults');
+            const statuses = document.querySelectorAll('.demo .status');
+            demoBtn.addEventListener('click', () => {
+                demoBtn.disabled = true;
+                demoResults.classList.remove('on');
+                statuses.forEach(s => s.textContent = 'Processing...');
+                demoBtn.textContent = 'Generating...';
+                setTimeout(() => {
+                    statuses.forEach(s => s.textContent = 'Done');
+                    demoResults.classList.add('on');
+                    demoBtn.textContent = 'Generate again';
+                    demoBtn.disabled = false;
+                }, 1100);
+            });
+
             // Carousel
             const slides = document.querySelectorAll('.slide');
             let i = 0;
@@ -252,6 +297,9 @@
             }
             document.getElementById('prev').addEventListener('click', () => show(i - 1));
             document.getElementById('next').addEventListener('click', () => show(i + 1));
+
+            // Footer year
+            document.getElementById("year").textContent = new Date().getFullYear();
         </script>
     </body>
 
