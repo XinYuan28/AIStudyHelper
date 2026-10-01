@@ -450,13 +450,41 @@ h4 {
     color: var(--muted);
 }
 
-.flower {
+.cat {
     grid-area: f;
     align-self: center;
     justify-self: center;
+    position: relative;
     width: 100%;
     max-width: 240px;
+    transition: transform 0.3s ease;
+}
+
+.cat img {
+    display: block;
+    width: 100%;
     height: auto;
+    transition: opacity 0.25s ease;
+}
+
+.cat .cat-hover {
+    position: absolute;
+    inset: 0;
+    height: 100%;
+    object-fit: contain;
+    opacity: 0;
+}
+
+.cat:hover {
+    transform: rotate(-5deg);
+}
+
+.cat:hover .cat-hover {
+    opacity: 1;
+}
+
+.cat:hover .cat-default {
+    opacity: 0;
 }
 
 /* HOW IT WORKS */
