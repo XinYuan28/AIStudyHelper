@@ -163,9 +163,7 @@ $login    = $mode === 'login';
                         </div>
                         <div class="divider"><span>New here? <a href="#" data-auth="signup">Sign up!</a></span></div>
                         <button type="submit" class="btn-solid">Log in</button>
-                        <?php if (SHOW_DEMO_HINT): ?>
-                            <p class="demo-hint">Demo account: <b><?= h(DEMO_EMAIL) ?></b> / <b><?= h(DEMO_PASSWORD) ?></b></p>
-                        <?php endif; ?>
+                        
                     </form>
 
                 </div>
@@ -259,6 +257,14 @@ $login    = $mode === 'login';
             <p class="footer-bottom">&copy; <span id="year"></span> AI Study Note Helper. All rights reserved.</p>
         </footer>
 
+        <!-- BACK TO TOP BUTTON -->
+        <button type="button" class="to-top" id="toTop" aria-label="Back to top">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 19V5M5 12l7-7 7 7" />
+            </svg>
+        </button>
+
         <script>
             // Password show/hide (works for both faces)
             document.querySelectorAll('[data-toggle]').forEach(btn => {
@@ -297,6 +303,13 @@ $login    = $mode === 'login';
 
             // Footer year
             document.getElementById("year").textContent = new Date().getFullYear();
+
+            // Back to top button
+            const toTop = document.getElementById('toTop');
+            function updateToTop() { toTop.classList.toggle('show', window.scrollY > 400); }
+            window.addEventListener('scroll', updateToTop, { passive: true });
+            updateToTop();
+            toTop.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
         </script>
     </body>
 
