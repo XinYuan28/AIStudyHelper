@@ -367,8 +367,11 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
                     info.appendChild(el('h3', '', l.title));
                     info.appendChild(el('small', '', ago(l.opened)));
 
-                    const open = el('button', 'btn ghost small', 'Open');
+                    const open = el('button', 'btn ghost small open-note-btn');
                     open.type = 'button';
+                    open.title = 'Open ' + l.title;
+                    open.setAttribute('aria-label', 'Open ' + l.title);
+                    open.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>';
                     open.addEventListener('click', () => openLesson(l.id));
 
                     const del = el('button', 'del-btn');
@@ -417,7 +420,7 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
             });
 
             /* UPLOAD / GENERATE FROM HOME */
-            let pendingAction = null; // 'notes', 'quiz' or null (just upload)
+            let pendingAction = null; 
 
             function pick(action) {
                 pendingAction = action;

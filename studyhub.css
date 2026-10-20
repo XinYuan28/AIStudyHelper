@@ -283,6 +283,23 @@ h4 {
     border-radius: 12px;
 }
 
+/* .btn.small sets horizontal padding of 1.2rem, which has higher specificity than
+   a single class and squeezed the 38px button's content box to 0 (empty icon).
+   Matching its specificity here fixes it. */
+.btn.open-note-btn {
+    flex: none;
+    width: 38px;
+    height: 38px;
+    padding: 0;
+}
+
+.btn.open-note-btn svg {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    fill: currentColor;
+}
+
 /* VIEWS */
 .view {
     animation: fade .3s ease;
@@ -329,7 +346,6 @@ body.home-active {
     margin: auto auto .6rem;
 }
 
-/* Give the home mascot more presence while keeping the lesson mascot unchanged. */
 #viewHome .home-cat {
     width: clamp(160px, 27vh, 230px);
     margin-bottom: .8rem;
