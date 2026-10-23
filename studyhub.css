@@ -347,8 +347,28 @@ body.home-active {
 }
 
 #viewHome .home-cat {
-    width: clamp(160px, 27vh, 230px);
+    width: clamp(260px, 50vh, 500px);
     margin-bottom: .8rem;
+}
+
+/* CAT VIDEO (note-cat-gif.mp4)
+   The exported video has a solid black background, so it is blended away instead of being shown as a box.
+   Light theme: invert so the black becomes white, then "multiply" (white disappears into the page colour).
+   Dark theme: "screen" makes black disappear into the page colour. */
+.cat-video {
+    aspect-ratio: 1536 / 1170;
+    max-width: 100%;
+    object-fit: contain;
+    pointer-events: none;
+    user-select: none;
+    background: transparent;
+    mix-blend-mode: multiply;
+    filter: invert(1) hue-rotate(180deg);
+}
+
+[data-theme="dark"] .cat-video {
+    mix-blend-mode: screen;
+    filter: none;
 }
 
 .greeting {
@@ -371,6 +391,26 @@ body.home-active {
     flex-wrap: wrap;
     gap: .8rem;
     margin: 1.1rem 0 auto;
+}
+
+/* UPLOAD HINT (up to 4 files per note) */
+.upload-hint {
+    flex: 0 0 100%;
+    margin-top: .2rem;
+    font-size: .85rem;
+    color: var(--muted);
+}
+
+.upload-hint.warn {
+    color: var(--bad);
+    font-weight: 500;
+}
+
+.file-list {
+    margin-top: .6rem;
+    font-size: .9rem;
+    color: var(--muted);
+    overflow-wrap: anywhere;
 }
 
 /* NOTES BOX */
@@ -451,6 +491,47 @@ body.home-active {
     text-overflow: ellipsis;
 }
 
+.note-head {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    min-width: 0;
+}
+
+.note-head h3 {
+    min-width: 0;
+}
+
+.file-badge {
+    flex: none;
+    padding: .05rem .6rem;
+    border-radius: 99px;
+    background: var(--tint);
+    color: var(--primary);
+    font-family: var(--font-display);
+    font-size: .72rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.name-input {
+    width: 100%;
+    margin: 1rem 0 1.2rem;
+    padding: .8rem 1.1rem;
+    font-family: var(--font-body);
+    font-size: 1rem;
+    color: var(--ink);
+    background: var(--bg);
+    border: 1.5px solid var(--line);
+    border-bottom-width: 4px;
+    border-radius: 14px;
+}
+
+.name-input:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
 .note-info small {
     color: var(--muted);
     font-size: .82rem;
@@ -463,7 +544,8 @@ body.home-active {
     gap: .5rem;
 }
 
-.del-btn {
+.del-btn,
+.edit-btn {
     flex: none;
     width: 38px;
     height: 38px;
@@ -477,6 +559,12 @@ body.home-active {
     transition: color .15s, border-color .15s, background .15s;
 }
 
+.edit-btn:hover {
+    color: var(--primary);
+    border-color: var(--primary);
+    background: var(--tint);
+}
+
 .del-btn:hover {
     color: var(--bad);
     border-color: var(--bad);
@@ -485,7 +573,7 @@ body.home-active {
 
 @media (max-height: 680px) {
     #viewHome .home-cat {
-        width: clamp(128px, 24vh, 180px);
+        width: clamp(200px, 42vh, 300px);
         margin-bottom: .3rem;
     }
 
@@ -595,7 +683,7 @@ body.home-active {
 }
 
 .start .home-cat {
-    width: 150px;
+    width: clamp(280px, 48vh, 460px);
 }
 
 .start h1 {
@@ -910,6 +998,133 @@ body.home-active {
     outline-offset: 2px;
 }
 
+/* SLIDERS (JS sets --fill so the track is coloured up to the thumb) */
+.field label .val {
+    display: inline-block;
+    margin-left: .4rem;
+    padding: .1rem .7rem;
+    border-radius: 99px;
+    background: var(--tint);
+    color: var(--primary);
+    font-size: .85rem;
+}
+
+.slider {
+    --fill: 50%;
+    -webkit-appearance: none;
+    appearance: none;
+    display: block;
+    width: 100%;
+    height: 12px;
+    border-radius: 99px;
+    background: linear-gradient(to right, var(--primary) var(--fill), var(--line) var(--fill));
+    cursor: pointer;
+}
+
+.slider::-webkit-slider-runnable-track {
+    height: 12px;
+    border-radius: 99px;
+    background: transparent;
+}
+
+.slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    box-sizing: border-box;
+    width: 26px;
+    height: 26px;
+    margin-top: -7px;
+    border-radius: 50%;
+    background: var(--card);
+    border: 3px solid var(--primary);
+    box-shadow: 0 3px 0 var(--primary-dark);
+    transition: transform .1s;
+}
+
+.slider:hover::-webkit-slider-thumb {
+    transform: scale(1.08);
+}
+
+.slider:active::-webkit-slider-thumb {
+    transform: translateY(2px);
+    box-shadow: 0 1px 0 var(--primary-dark);
+}
+
+.slider::-moz-range-track {
+    height: 12px;
+    border-radius: 99px;
+    background: var(--line);
+}
+
+.slider::-moz-range-progress {
+    height: 12px;
+    border-radius: 99px;
+    background: var(--primary);
+}
+
+.slider::-moz-range-thumb {
+    box-sizing: border-box;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--card);
+    border: 3px solid var(--primary);
+    box-shadow: 0 3px 0 var(--primary-dark);
+}
+
+.slider:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 6px;
+}
+
+.range-ticks {
+    display: flex;
+    justify-content: space-between;
+    margin-top: .6rem;
+    padding: 0 4px;
+    font-size: .78rem;
+    color: var(--muted);
+}
+
+/* TEXT-ANSWER QUESTIONS */
+.text-answer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .7rem;
+}
+
+.text-answer input {
+    flex: 1;
+    min-width: 200px;
+    padding: .8rem 1.1rem;
+    font-family: var(--font-body);
+    font-size: 1rem;
+    color: var(--ink);
+    background: var(--bg);
+    border: 1.5px solid var(--line);
+    border-bottom-width: 4px;
+    border-radius: 14px;
+}
+
+.text-answer input:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.text-answer input:disabled {
+    opacity: .8;
+}
+
+.text-answer input.correct {
+    border-color: var(--good);
+    background: var(--good-tint);
+}
+
+.text-answer input.wrong {
+    border-color: var(--bad);
+    background: var(--tint);
+}
+
 /* TEXT TO SPEECH */
 .tts-text {
     max-height: 260px;
@@ -943,6 +1158,16 @@ body.home-active {
 }
 
 /* RESPONSIVE */
+@media (max-width: 600px) {
+    #viewHome .home-cat {
+        width: min(100%, 280px);
+    }
+
+    .start .home-cat {
+        width: min(100%, 320px);
+    }
+}
+
 @media (max-width: 760px) {
     .lesson {
         flex-direction: column-reverse;
@@ -983,4 +1208,17 @@ body.home-active {
     * {
         transition: none !important;
     }
+}
+/* CAT SIZE (home page) - to resize cat */
+#viewHome .home-cat {
+    width: min(100%, 220px) !important;
+}
+/* CAT SIZE (lesson start page) - to resize cat */
+.start .home-cat {
+    width: min(100%, 200px) !important;
+}
+/* stops white box flashing at the background of the cat when fades in*/
+#viewHome,
+#viewLesson {
+    background: var(--surface);
 }
