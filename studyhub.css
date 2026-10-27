@@ -1157,6 +1157,105 @@ body.home-active {
     font-size: .88rem;
 }
 
+/* QUIZ RESULT: weak topics + weak parts */
+.weak-topics {
+    margin-top: 1.6rem;
+    display: flex;
+    flex-direction: column;
+    gap: .7rem;
+    text-align: left;
+}
+
+.weak-topics h3,
+.review h3 {
+    font-size: 1.05rem;
+}
+
+.section-sub {
+    margin-top: -.5rem;
+    font-size: .88rem;
+    color: var(--muted);
+}
+
+.topic-row {
+    padding: .9rem 1.2rem;
+    border: 1.5px solid var(--line);
+    border-radius: 14px;
+    background: var(--card);
+}
+
+.topic-row.top {
+    border-color: var(--bad);
+    background: var(--tint);
+}
+
+.topic-head {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .5rem;
+    margin-bottom: .5rem;
+}
+
+.topic-head b {
+    font-family: var(--font-display);
+}
+
+.topic-head small {
+    margin-left: auto;
+    color: var(--muted);
+    font-size: .82rem;
+}
+
+.weakest {
+    padding: .05rem .6rem;
+    border-radius: 99px;
+    background: var(--bad);
+    color: var(--on-primary);
+    font-family: var(--font-display);
+    font-size: .72rem;
+    font-weight: 600;
+}
+
+.topic-bar {
+    height: 8px;
+    border-radius: 99px;
+    background: var(--line);
+    overflow: hidden;
+}
+
+.topic-bar i {
+    display: block;
+    height: 100%;
+    border-radius: 99px;
+    background: var(--bad);
+}
+
+.topic-files {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .4rem;
+    margin-top: .6rem;
+}
+
+.topic-files small {
+    color: var(--muted);
+    font-size: .8rem;
+}
+
+.topic-files .file-badge {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.review-item .review-meta {
+    color: var(--primary);
+    font-weight: 500;
+    margin-bottom: .3rem;
+}
+
 /* RESPONSIVE */
 @media (max-width: 600px) {
     #viewHome .home-cat {

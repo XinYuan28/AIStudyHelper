@@ -388,6 +388,13 @@ function startQuiz(questions) {
         best = 0;
     const wrong = [];
 
+    // A note can have up to 4 files. When it has more than one, each question should say which file it came from.
+    const files = (current && current.files) || [];
+    const multi = files.length > 1;
+    // q.source = the file the question came from (the real generator should set this).
+    // Until then, the sample questions are spread over the note's files so the layout can be tested.
+    const fileOf = (q, n) => q.source || (multi ? files[n % files.length] : '');
+
     function renderQ() {
         area.textContent = '';
         const q = questions[i];
@@ -416,7 +423,8 @@ function startQuiz(questions) {
             } else {
                 streak = 0;
                 wrong.push(Object.assign({}, q, {
-                    picked: picked
+                    picked: picked,
+                    source: fileOf(q, i)
                 }));
             }
             fb.className = 'feedback ' + (ok ? 'ok' : 'no');
@@ -487,13 +495,64 @@ function startQuiz(questions) {
         card.appendChild(el('p', '', score + ' points · best streak ' + best));
 
         if (wrong.length) {
-            const topics = [...new Set(wrong.map(w => w.topic))];
-            card.appendChild(el('p', '', 'Weak spots: ' + topics.join(', ')));
+            /* WEAK TOPICS: count wrong answers per topic across ALL files of the note.
+               The topics with the most wrong answers are the weakest. */
+            const topicOf = q => q.topic || 'General';
+            const stats = {};
+            questions.forEach(q => {
+                const t = topicOf(q);
+                stats[t] = stats[t] || {
+                    topic: t,
+                    total: 0,
+                    wrong: 0,
+                    files: new Set()
+                };
+                stats[t].total++;
+            });
+            wrong.forEach(w => {
+                const s = stats[topicOf(w)];
+                s.wrong++;
+                if (w.source) s.files.add(w.source);
+            });
+            const ranked = Object.values(stats)
+                .filter(s => s.wrong > 0)
+                .sort((a, b) => b.wrong - a.wrong || (b.wrong / b.total) - (a.wrong / a.total));
+            const most = ranked[0].wrong;
+
+            const weak = el('div', 'weak-topics');
+            weak.appendChild(el('h3', '', 'Weak topics'));
+            weak.appendChild(el('p', 'section-sub', multi ?
+                'The topics you got wrong most often, across all ' + files.length + ' files in this note.' :
+                'The topics you got wrong most often.'));
+            ranked.forEach(s => {
+                const row = el('div', 'topic-row' + (s.wrong === most ? ' top' : ''));
+                const head = el('div', 'topic-head');
+                head.appendChild(el('b', '', s.topic));
+                if (s.wrong === most) head.appendChild(el('span', 'weakest', 'Weakest'));
+                head.appendChild(el('small', '', s.wrong + ' of ' + s.total + ' wrong'));
+                const bar = el('div', 'topic-bar');
+                const fill = el('i');
+                fill.style.width = Math.round(s.wrong / s.total * 100) + '%';
+                bar.appendChild(fill);
+                row.append(head, bar);
+                if (multi && s.files.size) {
+                    const from = el('div', 'topic-files');
+                    from.appendChild(el('small', '', 'From:'));
+                    s.files.forEach(n => from.appendChild(el('span', 'file-badge', n)));
+                    row.appendChild(from);
+                }
+                weak.appendChild(row);
+            });
+            card.appendChild(weak);
+
+            /* WEAK PARTS: the individual questions the student got wrong */
             const review = el('div', 'review');
-            review.appendChild(el('h3', '', 'Questions to review'));
+            review.appendChild(el('h3', '', 'Weak parts'));
+            review.appendChild(el('p', 'section-sub', 'The questions you got wrong.'));
             wrong.forEach(w => {
                 const it = el('div', 'review-item');
                 it.appendChild(el('b', '', w.q));
+                it.appendChild(el('small', 'review-meta', topicOf(w) + (multi && w.source ? ' · ' + w.source : '')));
                 it.appendChild(el('small', '', (w.type === 'text' ? 'You typed: ' + w.picked : 'You chose: ' + w.options[w.picked])));
                 it.appendChild(el('small', 'right', 'Correct: ' + correctText(w)));
                 review.appendChild(it);
