@@ -1,73 +1,84 @@
 <?php
-// JUST FOR DEMO
+// Login helpers, now backed by the `users` table of the ai_study_note database.
+// The function names and what they return are the same as the old JSON-file demo,
+// so index.php and studyhub.php keep working. Accounts used to live in data/users.json;
+// that file is no longer read.
 session_start();
+require_once __DIR__ . '/db.php';
 
 const SHOW_DEMO_HINT = true;
 
 const DEMO_EMAIL    = 'demo@aisnh.com';
 const DEMO_PASSWORD = 'demo1234';
 const DEMO_NAME     = 'Demo User';
+const SEED_DEMO_USER = true;   // true: the demo account above is created in `users` the first time it logs in. Set false to switch it off.
 
-define('DATA_DIR', __DIR__ . '/data');
-define('USERS_FILE', DATA_DIR . '/users.json');
+const LOGIN_MAX_FAILS  = 5;    // wrong passwords allowed ...
+const LOGIN_WINDOW_MIN = 15;   // ... within this many minutes, then login is paused for that email (table: login_attempts)
 
-function users_load(): array
+// users row -> the array the rest of the site expects
+function user_from_row(array $r): array
 {
-    if (!is_dir(DATA_DIR)) {
-        mkdir(DATA_DIR, 0755, true);
-    }
-    $ht = DATA_DIR . '/.htaccess';
-    if (!file_exists($ht)) {
-        file_put_contents($ht, "Require all denied\n<IfModule !mod_authz_core.c>\nDeny from all\n</IfModule>\n");
-    }
-    if (!file_exists(USERS_FILE)) {
-        users_save([
-            DEMO_EMAIL => [
-                'name'     => DEMO_NAME,
-                'hash'     => password_hash(DEMO_PASSWORD, PASSWORD_DEFAULT),
-                'created'  => time(),
-            ],
-        ]);
-    }
-    $data = json_decode((string) file_get_contents(USERS_FILE), true);
-    return is_array($data) ? $data : [];
-}
-
-function users_save(array $users): void
-{
-    file_put_contents(USERS_FILE, json_encode($users, JSON_PRETTY_PRINT), LOCK_EX);
+    return [
+        'id'    => (int) $r['id'],
+        'name'  => $r['username'],
+        'email' => $r['email'],
+        'hash'  => $r['password'],
+    ];
 }
 
 function find_user(string $email): ?array
 {
-    $users = users_load();
-    return $users[$email] ?? null;
+    $email = strtolower(trim($email));
+    $st = db()->prepare('SELECT id, username, email, password FROM users WHERE email = ?');
+    $st->execute([$email]);
+    $row = $st->fetch();
+    if ($row) {
+        return user_from_row($row);
+    }
+    if (SEED_DEMO_USER && $email === strtolower(DEMO_EMAIL)) {
+        try {
+            return create_user(DEMO_EMAIL, DEMO_PASSWORD, DEMO_NAME);
+        } catch (PDOException $e) {
+            // two requests created it at the same moment: just read it back
+            $st->execute([$email]);
+            $row = $st->fetch();
+            return $row ? user_from_row($row) : null;
+        }
+    }
+    return null;
 }
 
-function create_user(string $email, string $password): array
+// users.username is required (max 50 characters); the sign-up form has no username box,
+// so it is made from the part of the email before the @ (as before).
+function create_user(string $email, string $password, ?string $name = null): array
 {
-    $users = users_load();
-    $local = explode('@', $email)[0];
-    $name  = ucfirst(preg_replace('/[._-]+/', ' ', $local));
-    $users[$email] = [
-        'name'    => $name,
-        'hash'    => password_hash($password, PASSWORD_DEFAULT),
-        'created' => time(),
-    ];
-    users_save($users);
-    return $users[$email];
+    $email = strtolower(trim($email));
+    if ($name === null) {
+        $local = explode('@', $email)[0];
+        $name  = ucfirst(preg_replace('/[._-]+/', ' ', $local));
+    }
+    $name = mb_substr($name, 0, 50);
+    $hash = password_hash($password, PASSWORD_DEFAULT);
+
+    $pdo = db();
+    $pdo->prepare('INSERT INTO users (username, email, password) VALUES (?, ?, ?)')->execute([$name, $email, $hash]);
+
+    return ['id' => (int) $pdo->lastInsertId(), 'name' => $name, 'email' => $email, 'hash' => $hash];
 }
 
 function login_user(string $email, array $user): void
 {
     session_regenerate_id(true);
-    $_SESSION['email'] = $email;
-    $_SESSION['name']  = $user['name'];
+    $_SESSION['user_id'] = (int) $user['id'];   // users.id: notes and quiz results are saved against this
+    $_SESSION['email']   = $email;
+    $_SESSION['name']    = $user['name'];
 }
 
 function is_logged_in(): bool
 {
-    return !empty($_SESSION['email']);
+    // needs user_id, so anyone still holding an old (pre-database) session is asked to log in again
+    return !empty($_SESSION['user_id']);
 }
 
 function require_login(): void
@@ -76,6 +87,30 @@ function require_login(): void
         header('Location: index.php');
         exit;
     }
+}
+
+/* LOGIN ATTEMPTS (table login_attempts: email, ip, attempted_at) */
+function login_blocked(string $email): bool
+{
+    $st = db()->prepare(
+        'SELECT COUNT(*) FROM login_attempts
+          WHERE email = ? AND attempted_at > (NOW() - INTERVAL ' . (int) LOGIN_WINDOW_MIN . ' MINUTE)'
+    );
+    $st->execute([strtolower(trim($email))]);
+    return (int) $st->fetchColumn() >= LOGIN_MAX_FAILS;
+}
+
+function record_failed_login(string $email): void
+{
+    $pdo = db();
+    $pdo->prepare('INSERT INTO login_attempts (email, ip) VALUES (?, ?)')
+        ->execute([strtolower(trim($email)), substr((string) ($_SERVER['REMOTE_ADDR'] ?? ''), 0, 45)]);
+    $pdo->exec('DELETE FROM login_attempts WHERE attempted_at < (NOW() - INTERVAL 1 DAY)'); // keep the table small
+}
+
+function clear_login_attempts(string $email): void
+{
+    db()->prepare('DELETE FROM login_attempts WHERE email = ?')->execute([strtolower(trim($email))]);
 }
 
 function csrf_token(): string

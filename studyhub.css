@@ -1321,3 +1321,14 @@ body.home-active {
 #viewLesson {
     background: var(--surface);
 }
+
+/* EXPORT NOTES (PDF / slides / text choices) */
+.export-list {
+    display: grid;
+    gap: .6rem;
+    margin: 1rem 0 .6rem;
+}
+
+.export-list .btn {
+    width: 100%;
+}

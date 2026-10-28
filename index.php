@@ -16,13 +16,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error = 'Please enter a valid email address.';
     } elseif ($action === 'login') {
-        $user = find_user($email);
-        if ($user && password_verify($pass, $user['hash'])) {
-            login_user($email, $user);
-            header('Location: studyhub.php');
-            exit;
+        if (login_blocked($email)) {
+            $error = 'Too many wrong attempts. Please wait a few minutes and try again.';
+        } else {
+            $user = find_user($email);
+            if ($user && password_verify($pass, $user['hash'])) {
+                clear_login_attempts($email);
+                login_user($email, $user);
+                header('Location: studyhub.php');
+                exit;
+            }
+            record_failed_login($email);
+            $error = 'Incorrect email or password.';
         }
-        $error = 'Incorrect email or password.';
     } elseif ($action === 'signup') {
         if (strlen($pass) < 8) {
             $error = 'Password must be at least 8 characters.';

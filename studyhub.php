@@ -51,6 +51,23 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
             </form>
         </div>
 
+        <!-- EXPORT NOTES -->
+        <div class="modal" id="exportModal" role="dialog" aria-modal="true" aria-labelledby="exportTitle" hidden>
+            <div class="modal-box">
+                <h3 id="exportTitle">Export your notes</h3>
+                <p>Choose how you would like to save them.</p>
+                <div class="export-list">
+                    <button type="button" class="btn small" data-fmt="pdf">PDF document</button>
+                    <button type="button" class="btn small" data-fmt="pptx">Slides (PowerPoint)</button>
+                    <button type="button" class="btn ghost small" data-fmt="txt">Plain text</button>
+                </div>
+                <p class="note-msg" id="exportMsg" hidden></p>
+                <div class="actions">
+                    <button type="button" class="btn ghost small" id="exportCancel">Cancel</button>
+                </div>
+            </div>
+        </div>
+
         <!-- TOP BAR -->
         <header class="topbar">
             <div class="topbar-left">
@@ -115,14 +132,14 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
                         </svg>
                     </span>Notes
                 </button>
-                <button type="button" class="side-item" data-panel="game">
+                <a href="play_menu.php" class="side-item">
                     <span class="side-icon">
                         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
                             <rect x="2.5" y="7" width="19" height="11" rx="5" />
                             <path d="M7 10v5M4.5 12.5h5M15.5 11h.01M18 14h.01" />
                         </svg>
                     </span>Game Quiz
-                </button>
+                </a>
                 <button type="button" class="side-item" data-panel="custom">
                     <span class="side-icon">
                         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
@@ -177,9 +194,11 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
                     <h2 class="panel-title">Notes</h2>
                     <p class="lead" id="notesLead"></p>
                     <div class="card" id="notesBody"></div>
+                    <p class="note-msg" id="notesSaved" hidden></p>
                     <div class="actions">
                         <button type="button" class="btn ghost small" id="notesToTts">Listen to these notes</button>
                         <button type="button" class="btn ghost small" id="notesToQuiz">Test myself</button>
+                        <button type="button" class="btn ghost small" id="notesExport">Export notes</button>
                     </div>
                 </div>
 
@@ -241,6 +260,7 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
                             <button type="button" class="btn small" id="ttsPlay">Play</button>
                             <button type="button" class="btn ghost small" id="ttsPause">Pause</button>
                             <button type="button" class="btn ghost small" id="ttsStop">Stop</button>
+                            <button type="button" class="btn ghost small" id="ttsDownload">Download audio</button>
                             <select id="ttsRate" aria-label="Speed">
                                 <option value="0.8">0.8x</option>
                                 <option value="1" selected>1x</option>
@@ -256,8 +276,9 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
         </div>
 
         <script>
-            // the logged-in user's name, passed from PHP to studyhub.js
+            // passed from PHP to studyhub.js: the logged-in user's name and the token api.php checks on every save
             window.STUDYHUB_USER = <?= json_encode($userName) ?>;
+            window.STUDYHUB_CSRF = <?= json_encode(csrf_token()) ?>;
         </script>
         <script src="sample-data.js"></script>
         <script src="studyhub.js"></script>
