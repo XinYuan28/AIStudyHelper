@@ -1,59 +1,63 @@
 /* Placeholder content so the Study Hub can be demoed without a database.
-   When the database is connected, replace these with data loaded from the server. */
+   When the database is connected, replace these with data loaded from the server.
+   Topic: photosynthesis. Each question's `topic` must match a note heading below,
+   because the quiz result groups wrong answers by topic.
+   Note: keep digits out of `q` and `explain` text. sampleQuestions() in studyhub.js renumbers the first
+   number it finds when it repeats these questions to build a bigger quiz. */
 
 /* SAMPLE CONTENT */
 const SAMPLE_NOTES = [{
-        h: 'Key idea 1',
-        p: 'A short summary of the first main concept from the uploaded material goes here.'
+        h: 'What is photosynthesis?',
+        p: 'Photosynthesis is how plants, algae and some bacteria turn light energy into chemical energy. Using sunlight, water and carbon dioxide, they make glucose and release oxygen. It takes place inside chloroplasts, which contain the green pigment chlorophyll.'
     },
     {
-        h: 'Key idea 2',
-        p: 'The second main concept, explained in plain language with the important terms.'
+        h: 'Light-dependent reactions',
+        p: 'These reactions happen in the thylakoid membranes. Chlorophyll absorbs light, which splits water molecules and releases oxygen. The energy that is captured is stored in ATP and NADPH.'
     },
     {
-        h: 'Key idea 3',
-        p: 'The third concept and how it connects to the ones before it.'
+        h: 'The Calvin cycle',
+        p: 'The Calvin cycle takes place in the stroma and does not need light directly. It uses the ATP and NADPH made in the light-dependent reactions to turn carbon dioxide into glucose.'
     },
     {
         h: 'Quick recap',
-        p: 'A few lines that tie everything together so you can revise fast.'
+        p: 'The light-dependent reactions capture energy and release oxygen, and the Calvin cycle uses that energy to build sugar. Overall, carbon dioxide and water, with light energy, become glucose and oxygen.'
     }
 ];
 
 const SAMPLE_QUESTIONS = [{
-        q: 'Sample question 1: which option is correct?',
-        options: ['Option A', 'Option B', 'Option C', 'Option D'],
+        q: 'Where in the plant cell does photosynthesis take place?',
+        options: ['Mitochondria', 'Chloroplasts', 'Nucleus', 'Ribosomes'],
         answer: 1,
-        topic: 'Key idea 1',
-        explain: 'Explanation for question 1 taken from your material.'
+        topic: 'What is photosynthesis?',
+        explain: 'Photosynthesis happens in the chloroplasts, which contain chlorophyll.'
     },
     {
-        q: 'Sample question 2: which option is correct?',
-        options: ['Option A', 'Option B', 'Option C', 'Option D'],
+        q: 'What is released when water is split in the light-dependent reactions?',
+        options: ['Oxygen', 'Glucose', 'Carbon dioxide', 'Nitrogen'],
         answer: 0,
-        topic: 'Key idea 2',
-        explain: 'Explanation for question 2 taken from your material.'
+        topic: 'Light-dependent reactions',
+        explain: 'Splitting water releases oxygen as a by-product.'
     },
     {
-        q: 'Sample question 3: which option is correct?',
-        options: ['Option A', 'Option B', 'Option C', 'Option D'],
+        q: 'Where does the Calvin cycle take place?',
+        options: ['Thylakoid membrane', 'Cell wall', 'Stroma', 'Cytoplasm'],
         answer: 2,
-        topic: 'Key idea 3',
-        explain: 'Explanation for question 3 taken from your material.'
+        topic: 'The Calvin cycle',
+        explain: 'The Calvin cycle happens in the stroma of the chloroplast.'
     },
     {
-        q: 'Sample question 4: which option is correct?',
-        options: ['Option A', 'Option B', 'Option C', 'Option D'],
+        q: 'Which gas do plants take in for photosynthesis?',
+        options: ['Oxygen', 'Nitrogen', 'Hydrogen', 'Carbon dioxide'],
         answer: 3,
-        topic: 'Key idea 1',
-        explain: 'Explanation for question 4 taken from your material.'
+        topic: 'What is photosynthesis?',
+        explain: 'Plants take in carbon dioxide and use it to build glucose.'
     },
     {
-        q: 'Sample question 5: which option is correct?',
-        options: ['Option A', 'Option B', 'Option C', 'Option D'],
+        q: 'Which molecules store the energy captured in the light-dependent reactions?',
+        options: ['DNA and RNA', 'ATP and NADPH', 'Starch and cellulose', 'Lipids and proteins'],
         answer: 1,
-        topic: 'Key idea 2',
-        explain: 'Explanation for question 5 taken from your material.'
+        topic: 'Light-dependent reactions',
+        explain: 'The energy is stored in ATP and NADPH, which the Calvin cycle then uses.'
     }
 ];
 
@@ -61,42 +65,42 @@ const SAMPLE_QUESTIONS = [{
    `answer` is the main answer; `accept` is an optional list of other accepted wordings. */
 const SAMPLE_TEXT_QUESTIONS = [{
         type: 'text',
-        q: 'Sample text question 1: type the missing term.',
-        answer: 'Sample answer 1',
-        accept: ['answer 1'],
-        topic: 'Key idea 1',
-        explain: 'Explanation for text question 1 taken from your material.'
+        q: 'Type the name of the green pigment that absorbs light for photosynthesis.',
+        answer: 'Chlorophyll',
+        accept: ['chlorophyll a'],
+        topic: 'What is photosynthesis?',
+        explain: 'Chlorophyll absorbs light energy, mainly red and blue light.'
     },
     {
         type: 'text',
-        q: 'Sample text question 2: type the missing term.',
-        answer: 'Sample answer 2',
-        accept: ['answer 2'],
-        topic: 'Key idea 2',
-        explain: 'Explanation for text question 2 taken from your material.'
+        q: 'Type the name of the membranes inside chloroplasts where the light-dependent reactions happen.',
+        answer: 'Thylakoid',
+        accept: ['thylakoids', 'thylakoid membrane', 'thylakoid membranes'],
+        topic: 'Light-dependent reactions',
+        explain: 'The light-dependent reactions take place in the thylakoid membranes.'
     },
     {
         type: 'text',
-        q: 'Sample text question 3: type the missing term.',
-        answer: 'Sample answer 3',
-        accept: ['answer 3'],
-        topic: 'Key idea 3',
-        explain: 'Explanation for text question 3 taken from your material.'
+        q: 'Type the name of the cycle that turns carbon dioxide into glucose.',
+        answer: 'Calvin cycle',
+        accept: ['the calvin cycle', 'calvin', 'calvin benson cycle', 'calvin-benson cycle'],
+        topic: 'The Calvin cycle',
+        explain: 'The Calvin cycle uses ATP and NADPH to build glucose from carbon dioxide.'
     },
     {
         type: 'text',
-        q: 'Sample text question 4: type the missing term.',
-        answer: 'Sample answer 4',
-        accept: ['answer 4'],
-        topic: 'Key idea 1',
-        explain: 'Explanation for text question 4 taken from your material.'
+        q: 'Type the sugar that is the main product of photosynthesis.',
+        answer: 'Glucose',
+        accept: ['c6h12o6'],
+        topic: 'What is photosynthesis?',
+        explain: 'Glucose is the sugar plants make and use as an energy source.'
     },
     {
         type: 'text',
-        q: 'Sample text question 5: type the missing term.',
-        answer: 'Sample answer 5',
-        accept: ['answer 5'],
-        topic: 'Key idea 2',
-        explain: 'Explanation for text question 5 taken from your material.'
+        q: 'Type the gas that is released when water is split.',
+        answer: 'Oxygen',
+        accept: ['o2'],
+        topic: 'Light-dependent reactions',
+        explain: 'Oxygen is released as a by-product when water is split.'
     }
 ];

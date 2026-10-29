@@ -265,6 +265,7 @@ h4 {
 .modal-box h3 {
     font-size: 1.2rem;
     margin-bottom: .5rem;
+    overflow-wrap: anywhere;
 }
 
 .modal-box p {
@@ -329,9 +330,9 @@ body.home-active {
     flex: 1;
     min-height: 0;
     width: 100%;
-    max-width: 760px;
+    max-width: 1000px;
     margin: 0 auto;
-    padding: .5rem 5% 1.2rem;
+    padding: .5rem 1.5rem 1.2rem;
     text-align: center;
     display: flex;
     flex-direction: column;
@@ -417,9 +418,9 @@ body.home-active {
 .notes-box {
     margin-top: 1.2rem;
     flex: 0 1 auto;
-    height: 30vh;
+    height: 38vh;
     min-height: 150px;
-    max-height: 260px;
+    max-height: 400px;
     display: flex;
     flex-direction: column;
     padding: 1rem 1rem 1rem 1.2rem;
@@ -545,7 +546,8 @@ body.home-active {
 }
 
 .del-btn,
-.edit-btn {
+.edit-btn,
+.convert-btn {
     flex: none;
     width: 38px;
     height: 38px;
@@ -559,7 +561,8 @@ body.home-active {
     transition: color .15s, border-color .15s, background .15s;
 }
 
-.edit-btn:hover {
+.edit-btn:hover,
+.convert-btn:hover {
     color: var(--primary);
     border-color: var(--primary);
     background: var(--tint);
@@ -1331,4 +1334,118 @@ body.home-active {
 
 .export-list .btn {
     width: 100%;
+}
+/* ICON-ONLY BUTTONS (notes page, text-to-speech, saved-note rows). The name is in title + aria-label. */
+.btn.icon-only {
+    flex: none;
+    width: 46px;
+    height: 46px;
+    padding: 0;
+    border-radius: 14px;
+}
+
+.btn.icon-only svg {
+    flex: none;
+    width: 22px;
+    height: 22px;
+}
+
+/* Show the accessible action name when an icon-only control is hovered or focused. */
+.icon-btn,
+.btn.icon-only,
+.open-note-btn,
+.edit-btn,
+.convert-btn,
+.del-btn {
+    position: relative;
+}
+
+.icon-btn[aria-label]::before,
+.btn.icon-only[aria-label]::before,
+.open-note-btn[aria-label]::before,
+.edit-btn[aria-label]::before,
+.convert-btn[aria-label]::before,
+.del-btn[aria-label]::before {
+    content: attr(aria-label);
+    position: absolute;
+    z-index: 20;
+    left: 50%;
+    bottom: calc(100% + 9px);
+    transform: translate(-50%, 3px);
+    padding: .4rem .65rem;
+    border-radius: 7px;
+    background: var(--text);
+    color: var(--card);
+    font: inherit;
+    font-size: .78rem;
+    font-weight: 500;
+    line-height: 1.25;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity .15s ease, transform .15s ease, visibility .15s;
+}
+
+.icon-btn[aria-label]:hover::before,
+.icon-btn[aria-label]:focus-visible::before,
+.btn.icon-only[aria-label]:hover::before,
+.btn.icon-only[aria-label]:focus-visible::before,
+.open-note-btn[aria-label]:hover::before,
+.open-note-btn[aria-label]:focus-visible::before,
+.edit-btn[aria-label]:hover::before,
+.edit-btn[aria-label]:focus-visible::before,
+.convert-btn[aria-label]:hover::before,
+.convert-btn[aria-label]:focus-visible::before,
+.del-btn[aria-label]:hover::before,
+.del-btn[aria-label]:focus-visible::before {
+    opacity: 1;
+    visibility: visible;
+    transform: translate(-50%, 0);
+}
+
+/* waiting for the server (Gemini voice, loading a note): the icon is replaced by a small spinner */
+.btn.busy,
+.convert-btn.busy {
+    position: relative;
+    cursor: progress;
+}
+
+.btn.busy svg,
+.convert-btn.busy svg {
+    opacity: 0;
+}
+
+.btn.busy::after,
+.convert-btn.busy::after {
+    content: "";
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    border: 2.5px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* SAVED NOTES on narrow screens: the four icon buttons move under the title so the title stays readable */
+@media (max-width: 600px) {
+    .note-row {
+        flex-wrap: wrap;
+    }
+
+    .note-info {
+        flex: 1 1 120px;
+    }
+
+    .note-actions {
+        flex: 0 0 100%;
+        justify-content: flex-end;
+    }
 }

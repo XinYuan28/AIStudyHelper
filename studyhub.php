@@ -91,8 +91,8 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
 
         <!-- USER HOME -->
         <main class="home view" id="viewHome">
-            <video class="home-cat cat-video" autoplay loop muted playsinline preload="auto" poster="Images/note_cat.svg" aria-hidden="true" tabindex="-1">
-                <source src="Images/note-cat-gif.MP4" type="video/mp4">
+            <video class="home-cat cat-video" autoplay loop muted playsinline preload="auto" poster="Images/note-cat-poster.png" aria-hidden="true" tabindex="-1">
+                <source src="Images/note-cat-gif.mp4" type="video/mp4">
             </video>
             <h1 class="greeting" id="greeting">Hello, <?= htmlspecialchars($userName) ?>!</h1>
             <p class="greeting-sub">Upload your study materials and we'll take it from there.</p>
@@ -100,7 +100,7 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
             <div class="home-actions">
                 <button type="button" class="btn" id="homeQuiz">Generate quiz</button>
                 <button type="button" class="btn" id="homeNotes">Generate notes</button>
-                <p class="upload-hint" id="uploadHint">Tip: you can choose up to 4 files (PDF, Word, PowerPoint, text or audio) to make one set of notes.</p>
+                <p class="upload-hint" id="uploadHint">Tip: you can add several files (PDF, Word, PowerPoint, text or audio), up to 100 MB in total, to make one set of notes.</p>
             </div>
 
             <input type="file" id="fileInput" accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.mp3,.m4a,.wav" multiple hidden>
@@ -163,8 +163,8 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
 
                 <!-- START - GENERATE NOTES OR TAKE QUIZ -->
                 <div class="panel start" id="panel-start">
-                    <video class="home-cat cat-video" autoplay loop muted playsinline preload="auto" poster="Images/note_cat.svg" aria-hidden="true" tabindex="-1">
-                        <source src="Images/note-cat-gif.MP4" type="video/mp4">
+                    <video class="home-cat cat-video" autoplay loop muted playsinline preload="auto" poster="Images/note-cat-poster.png" aria-hidden="true" tabindex="-1">
+                        <source src="Images/note-cat-gif.mp4" type="video/mp4">
                     </video>
                     <h1 id="startTitle"></h1>
                     <p class="file-list" id="startFiles"></p>
@@ -196,9 +196,9 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
                     <div class="card" id="notesBody"></div>
                     <p class="note-msg" id="notesSaved" hidden></p>
                     <div class="actions">
-                        <button type="button" class="btn ghost small" id="notesToTts">Listen to these notes</button>
-                        <button type="button" class="btn ghost small" id="notesToQuiz">Test myself</button>
-                        <button type="button" class="btn ghost small" id="notesExport">Export notes</button>
+                        <button type="button" class="btn ghost icon-only" id="notesToTts" title="Listen to these notes" aria-label="Listen to these notes"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 10v4h4l5 4V6L8 10H4z"/><path d="M16.5 9a4 4 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11"/></svg></button>
+                        <button type="button" class="btn ghost icon-only" id="notesToQuiz" title="Test myself" aria-label="Test myself"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="5" y="4" width="14" height="17" rx="2.5"/><path d="M9.5 4V3h5v1M9 13l2.2 2.2L15.5 11"/></svg></button>
+                        <button type="button" class="btn ghost icon-only" id="notesExport" title="Export notes (PDF, slides or text)" aria-label="Export notes"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14"/></svg></button>
                     </div>
                 </div>
 
@@ -257,10 +257,10 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
                     <div class="card">
                         <div class="tts-text" id="ttsText"></div>
                         <div class="tts-controls">
-                            <button type="button" class="btn small" id="ttsPlay">Play</button>
-                            <button type="button" class="btn ghost small" id="ttsPause">Pause</button>
-                            <button type="button" class="btn ghost small" id="ttsStop">Stop</button>
-                            <button type="button" class="btn ghost small" id="ttsDownload">Download audio</button>
+                            <button type="button" class="btn icon-only" id="ttsPlay" title="Play" aria-label="Play"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M8 5.5v13l10.5-6.5z"/></svg></button>
+                            <button type="button" class="btn ghost icon-only" id="ttsPause" title="Pause" aria-label="Pause"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="6.5" y="5" width="3.8" height="14" rx="1"/><rect x="13.7" y="5" width="3.8" height="14" rx="1"/></svg></button>
+                            <button type="button" class="btn ghost icon-only" id="ttsStop" title="Stop" aria-label="Stop"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="6" y="6" width="12" height="12" rx="2.2"/></svg></button>
+                            <button type="button" class="btn ghost icon-only" id="ttsDownload" title="Download audio" aria-label="Download audio"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14"/></svg></button>
                             <select id="ttsRate" aria-label="Speed">
                                 <option value="0.8">0.8x</option>
                                 <option value="1" selected>1x</option>

@@ -129,7 +129,7 @@ function renderList() {
     if (!lessons.length) {
         const e = el('div', 'empty');
         e.appendChild(el('b', '', 'No notes yet'));
-        e.appendChild(el('span', '', 'Click here or drop up to 4 files to upload your first study material.'));
+        e.appendChild(el('span', '', 'Click here or drop your files (up to ' + MAX_TOTAL_MB + ' MB in total) to upload your first study material.'));
         e.addEventListener('click', () => pick(null));
         ['dragover', 'dragenter'].forEach(t => e.addEventListener(t, ev => {
             ev.preventDefault();
@@ -154,12 +154,14 @@ function renderList() {
         info.appendChild(head);
         info.appendChild(el('small', '', ago(l.updated)));
 
-        const open = el('button', 'btn ghost small open-note-btn');
-        open.type = 'button';
-        open.title = 'Open ' + l.title;
-        open.setAttribute('aria-label', 'Open ' + l.title);
+        // a real link: opens the note in a new tab (so several notes can be open at once); Ctrl/middle-click work too
+        const open = el('a', 'btn ghost small open-note-btn');
+        open.href = '?note=' + encodeURIComponent(l.id);
+        open.target = '_blank';
+        open.rel = 'noopener';
+        open.title = 'Open ' + l.title + ' in a new tab';
+        open.setAttribute('aria-label', 'Open ' + l.title + ' in a new tab');
         open.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>';
-        open.addEventListener('click', () => openLesson(l.id));
 
         const edit = el('button', 'edit-btn');
         edit.type = 'button';
@@ -167,6 +169,13 @@ function renderList() {
         edit.setAttribute('aria-label', 'Rename ' + l.title);
         edit.innerHTML = pencilIcon;
         edit.addEventListener('click', () => askRename(l));
+
+        const conv = el('button', 'convert-btn');
+        conv.type = 'button';
+        conv.title = 'Convert to PDF, slides or text';
+        conv.setAttribute('aria-label', 'Convert ' + l.title + ' to PDF, slides or text');
+        conv.innerHTML = convertIcon;
+        conv.addEventListener('click', () => convertNote(l, conv));
 
         const del = el('button', 'del-btn');
         del.type = 'button';
@@ -176,13 +185,38 @@ function renderList() {
         del.addEventListener('click', () => askDelete(l));
 
         const acts = el('div', 'note-actions');
-        acts.append(open, edit, del);
+        acts.append(open, edit, conv, del);
         row.append(ico, info, acts);
         box.appendChild(row);
     });
 }
 
 const pencilIcon = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4zM13.5 6.5l4 4" /></svg>';
+
+const convertIcon = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5" /><path d="M12 11.5v5.5M9.5 14.8 12 17.3l2.5-2.5" /></svg>';
+
+/* CONVERT A SAVED NOTE (from the home list): loads its saved notes, then opens the same PDF / slides / text box */
+let converting = false;
+async function convertNote(l, btn) {
+    if (converting) return;
+    converting = true;
+    btn.classList.add('busy');
+    try {
+        const r = await apiCall('get', {
+            id: l.id
+        });
+        const secs = r.content ? parseNotes(r.content) : [];
+        if (!secs.length) {
+            setHint('"' + l.title + '" has no generated notes yet. Open it and generate notes first, then you can convert them.', true);
+        } else {
+            openExport(secs, l.title);
+        }
+    } catch (err) {
+        setHint(err.message, true);
+    }
+    btn.classList.remove('busy');
+    converting = false;
+}
 
 /* DELETE WITH CONFIRMATION */
 const trashIcon = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" /></svg>';
@@ -225,9 +259,10 @@ $('confirmOk').addEventListener('click', async () => {
 let pendingAction = null; 
 
 function pick(action) {
-    window.location.href = 'upload.php?mode=' + (action === 'quiz' ? 'personalised' : 'general');
+    pendingAction = action;
+    $('fileInput').click();
 }
-$('uploadBtn').addEventListener('click', () => pick('notes'));
+$('uploadBtn').addEventListener('click', () => pick(null));
 $('homeNotes').addEventListener('click', () => pick('notes'));
 $('homeQuiz').addEventListener('click', () => pick('quiz'));
 $('fileInput').addEventListener('change', e => {
@@ -238,11 +273,27 @@ $('fileInput').addEventListener('change', e => {
     e.target.value = '';
 });
 
-/* UP TO 4 FILES PER NOTE */
-const MAX_FILES = 4;
+/* UPLOAD LIMITS: one note can have many files, but all its files together must stay under MAX_TOTAL_MB.
+   (api.php has the same two numbers; change them in both places.) */
+const MAX_TOTAL_MB = 100;
+const MAX_FILES = 20; // only a safety net so one note does not get hundreds of files
 const ALLOWED_EXT = /\.(pdf|docx?|pptx?|txt|mp3|m4a|wav)$/i;
-const HINT_DEFAULT = $('uploadHint').textContent;
+const HINT_DEFAULT = 'Tip: you can add several files (PDF, Word, PowerPoint, text or audio), up to ' + MAX_TOTAL_MB + ' MB in total, to make one set of notes.';
+$('uploadHint').textContent = HINT_DEFAULT;
 let hintTimer;
+
+function fmtSize(bytes) {
+    if (bytes >= 1024 * 1024) return (bytes / 1024 / 1024).toFixed(bytes >= 10 * 1024 * 1024 ? 0 : 1) + ' MB';
+    return Math.max(1, Math.round(bytes / 1024)) + ' KB';
+}
+
+// the line shown under a note's name: the file names, or just a count when there are many
+function filesSummary(names, sizes) {
+    if (!names || !names.length) return '';
+    if (names.length <= 3) return names.join(' · ');
+    const total = (sizes || []).reduce((a, b) => a + (b || 0), 0);
+    return names.length + ' files' + (total ? ' · ' + fmtSize(total) + ' in total' : '');
+}
 
 // shows the tip under the buttons; a warning turns red and goes back to the tip after a few seconds
 function setHint(msg, warn) {
@@ -257,12 +308,17 @@ function addLesson(fileList, action) {
     const files = Array.from(fileList || []);
     if (!files.length) return;
     // reject the whole selection (instead of quietly dropping files) so the user knows what happened
-    if (files.length > MAX_FILES) {
-        setHint('You can choose up to ' + MAX_FILES + ' files for one note, but you selected ' + files.length + '. Please pick ' + MAX_FILES + ' or fewer.', true);
-        return;
-    }
     if (files.some(f => !ALLOWED_EXT.test(f.name))) {
         setHint('Only PDF, Word, PowerPoint, text and audio files (mp3, m4a, wav) are supported.', true);
+        return;
+    }
+    if (files.length > MAX_FILES) {
+        setHint('You selected ' + files.length + ' files, but one note can have up to ' + MAX_FILES + '. Please pick fewer files.', true);
+        return;
+    }
+    const total = files.reduce((a, f) => a + f.size, 0);
+    if (total > MAX_TOTAL_MB * 1024 * 1024) {
+        setHint('Your files add up to ' + fmtSize(total) + ', but one note can hold up to ' + MAX_TOTAL_MB + ' MB in total. Please pick fewer or smaller files.', true);
         return;
     }
     setHint(HINT_DEFAULT, false);
@@ -296,13 +352,13 @@ function askName(names, action, sizes) {
         sizes: sizes || [],
         action: action
     };
-    openNameBox('Name your notes', 'Continue', names.join(' · '), defaultName(names));
+    openNameBox('Name your notes', 'Continue', filesSummary(names, sizes), defaultName(names));
 }
 
 function askRename(l) {
     pendingUpload = null;
     pendingRename = l;
-    openNameBox('Rename your notes', 'Save', (l.files || []).join(' · '), l.title);
+    openNameBox('Rename your notes', 'Save', filesSummary(l.files), l.title);
 }
 
 function closeName() {
@@ -375,9 +431,20 @@ async function createLesson(title, names, action, sizes) {
 /* NAVIGATION */
 const panels = ['start', 'notes', 'game', 'custom', 'tts'];
 
+// studyhub.php?note=5 opens note 5 straight away (that is the link the "open" button uses, in a new tab)
+function setNoteUrl(id) {
+    try {
+        const u = new URL(location.href);
+        if (id) u.searchParams.set('note', id);
+        else u.searchParams.delete('note');
+        history.replaceState(null, '', u);
+    } catch (e) {}
+}
+
 function showHome() {
     stopSpeech();
     current = null;
+    setNoteUrl(0);
     document.body.classList.add('home-active');
     $('viewLesson').hidden = true;
     $('crumbs').hidden = true;
@@ -390,12 +457,13 @@ function showHome() {
 function openLesson(id, fresh) {
     current = lessons.find(l => l.id === id);
     if (!current) return;
+    setNoteUrl(current.id);
     notesText = '';
     $('notesBody').textContent = '';
     $('notesLead').textContent = '';
     $('notesSaved').hidden = true;
     $('startTitle').textContent = current.title;
-    $('startFiles').textContent = current.files && current.files.length ? current.files.join(' · ') : '';
+    $('startFiles').textContent = filesSummary(current.files);
     $('crumbTitle').textContent = current.title;
     $('crumbs').hidden = false;
     document.body.classList.remove('home-active');
@@ -453,7 +521,7 @@ $('chooseQuiz').addEventListener('click', () => startQuiz(SAMPLE_QUESTIONS.slice
 $('notesToTts').addEventListener('click', () => showPanel('tts'));
 $('notesToQuiz').addEventListener('click', () => startQuiz(SAMPLE_QUESTIONS.slice()));
 
-/* EXPORT NOTES: PDF, slides (.pptx) or plain text. Everything is made in the browser from the notes on screen. */
+/* EXPORT NOTES: PDF, slides (.pptx) or plain text. Everything is made in the browser (libraries are in the lib folder). */
 function notesForExport() {
     return Array.from($('notesBody').querySelectorAll('.note-sec')).map(s => {
         const h = s.querySelector('h3');
@@ -465,8 +533,8 @@ function notesForExport() {
     });
 }
 
-function exportName() {
-    return ((current && current.title) || 'Study notes').replace(/[\\/:*?"<>|]+/g, '').trim() || 'study-notes';
+function exportName(title) {
+    return (title || (current && current.title) || 'Study notes').replace(/[\\/:*?"<>|]+/g, '').trim() || 'study-notes';
 }
 
 function downloadBlob(blob, filename) {
@@ -487,68 +555,127 @@ function exportTxt(secs, title) {
     const text = title + '\n' + '='.repeat(title.length) + '\n\n' + secs.map(s => s.h + (s.p ? '\n' + s.p : '')).join('\n\n') + '\n';
     downloadBlob(new Blob([text], {
         type: 'text/plain;charset=utf-8'
-    }), exportName() + '.txt');
+    }), exportName(title) + '.txt');
 }
 
-// PDF: a clean page is printed from a hidden frame; in the print window choose "Save as PDF" as the printer.
-// (This keeps every language and selectable text, which a screenshot-style PDF would not.)
-function exportPdf(secs, title) {
+// Loads one of the helper libraries from the lib/ folder (kept inside the project, so no internet is needed).
+function loadLib(src, isReady, what) {
+    if (isReady()) return Promise.resolve();
+    return new Promise((ok, fail) => {
+        const s = document.createElement('script');
+        s.src = src;
+        s.onload = ok;
+        s.onerror = () => {
+            s.remove();
+            fail(new Error('Could not load the ' + what + '. Please check that the lib folder (with ' + src.split('/').pop() + ') is next to studyhub.php.'));
+        };
+        document.head.appendChild(s);
+    });
+}
+
+// PDF: made in the browser and downloaded straight away (no print window).
+// Each section of the notes is drawn as a picture of the browser's own text, so every language works.
+// The text inside such a PDF cannot be selected or searched.
+const PDF_CSS = 'body{margin:0;width:680px;font-family:"Segoe UI",Inter,system-ui,-apple-system,sans-serif;color:#2b2226;line-height:1.55;font-size:15.3px;overflow-wrap:anywhere}' +
+    'h1{font-size:32px;line-height:1.2;margin:0 0 6px;color:#c8424d}' +
+    '.sub{color:#6b5f62;font-size:13.3px;margin:0;padding-bottom:12px;border-bottom:2px solid #c8424d}' +
+    '.blk{padding:0 0 18px;background:#fff}' +
+    'h2{font-size:18.7px;line-height:1.3;margin:0 0 6px}' +
+    'p{margin:0 0 5px}.li{position:relative;padding-left:22px;margin:0 0 3px}.li:before{content:"\\2022";position:absolute;left:8px}';
+
+async function exportPdf(secs, title) {
+    await loadLib('lib/html2canvas.min.js', () => window.html2canvas, 'PDF maker');
+    await loadLib('lib/jspdf.umd.min.js', () => window.jspdf, 'PDF maker');
+
     const esc = s => s.replace(/[&<>"]/g, c => ({
         '&': '&amp;',
         '<': '&lt;',
         '>': '&gt;',
         '"': '&quot;'
     }[c]));
-    const sectionHtml = s => {
-        let out = '<h2>' + esc(s.h) + '</h2>',
-            list = false;
-        bodyLines(s.p).forEach(l => {
-            const b = BULLET.test(l);
-            if (b && !list) out += '<ul>';
-            if (!b && list) out += '</ul>';
-            list = b;
-            out += b ? '<li>' + esc(l.replace(BULLET, '')) + '</li>' : '<p>' + esc(l) + '</p>';
-        });
-        return '<section>' + out + (list ? '</ul>' : '') + '</section>';
-    };
-    const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + esc(exportName()) + '</title><style>' +
-        '@page{margin:18mm}' +
-        'body{font-family:Inter,"Segoe UI",system-ui,sans-serif;color:#2b2226;line-height:1.55;font-size:11.5pt}' +
-        'h1{font-size:24pt;margin:0 0 4pt;color:#c8424d}' +
-        '.sub{color:#6b5f62;font-size:10pt;margin:0 0 18pt;padding-bottom:10pt;border-bottom:2px solid #c8424d}' +
-        'section{break-inside:avoid;margin:0 0 14pt}' +
-        'h2{font-size:14pt;margin:0 0 4pt}' +
-        'p{margin:0 0 4pt}ul{margin:0 0 4pt;padding-left:18pt}li{margin:0 0 2pt}' +
-        '</style></head><body><h1>' + esc(title) + '</h1><p class="sub">Study notes · AI Study Note Helper</p>' +
+    const sectionHtml = s => '<div class="blk"><h2>' + esc(s.h) + '</h2>' + bodyLines(s.p).map(l =>
+        BULLET.test(l) ? '<div class="li">' + esc(l.replace(BULLET, '')) + '</div>' : '<p>' + esc(l) + '</p>').join('') + '</div>';
+    const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><style>' + PDF_CSS + '</style></head><body>' +
+        '<div class="blk"><h1>' + esc(title) + '</h1><p class="sub">Study notes · AI Study Note Helper</p></div>' +
         secs.map(sectionHtml).join('') + '</body></html>';
 
-    const f = document.createElement('iframe');
-    f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
-    document.body.appendChild(f);
-    const d = f.contentWindow.document;
-    d.open();
-    d.write(html);
-    d.close();
-    const oldTitle = document.title;
-    document.title = exportName(); // the print window suggests this as the file name
-    setTimeout(() => {
-        f.contentWindow.focus();
-        f.contentWindow.print();
-        document.title = oldTitle;
-        setTimeout(() => f.remove(), 60000);
-    }, 300);
+    // the notes are laid out in a hidden frame of their own (680 px wide = the 180 mm between the page margins)
+    const W = 680,
+        PX = W / 180,
+        M = 15,
+        BOTTOM = 297 - M;
+    const frame = document.createElement('iframe');
+    frame.setAttribute('aria-hidden', 'true');
+    frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:' + W + 'px;height:1200px;border:0';
+    document.body.appendChild(frame);
+    try {
+        const d = frame.contentDocument;
+        d.open();
+        d.write(html);
+        d.close();
+        const pdf = new window.jspdf.jsPDF({
+            unit: 'mm',
+            format: 'a4'
+        });
+        let y = M;
+
+        for (const el of Array.from(d.querySelectorAll('.blk'))) {
+            const box = el.getBoundingClientRect();
+            const total = box.height;
+            const canvas = await window.html2canvas(el, {
+                scale: 1.6,
+                backgroundColor: '#ffffff',
+                logging: false,
+                windowWidth: W,
+                windowHeight: Math.ceil(total) + 20
+            });
+            const k = canvas.height / total; // canvas pixels per layout pixel
+            // places where a long section may be cut between two pages: the bottoms of its paragraphs and bullets
+            const marks = Array.from(el.querySelectorAll('p,.li')).map(n => n.getBoundingClientRect().bottom - box.top);
+            let off = 0;
+            while (off < total - 0.5) {
+                const avail = (BOTTOM - y) * PX; // layout pixels left on this page
+                let cut;
+                if (total - off <= avail) {
+                    cut = total;
+                } else {
+                    const ok = marks.filter(m => m > off + 12 && m <= off + avail);
+                    if (ok.length) cut = Math.max.apply(null, ok);
+                    else if (y > M + 0.1) { // nothing fits in the space left: start a new page
+                        pdf.addPage();
+                        y = M;
+                        continue;
+                    } else cut = off + avail; // one block taller than a page: cut it
+                }
+                let img = canvas;
+                if (off > 0 || cut < total) {
+                    img = document.createElement('canvas');
+                    img.width = canvas.width;
+                    img.height = Math.max(1, Math.round((cut - off) * k));
+                    const g = img.getContext('2d');
+                    g.fillStyle = '#fff';
+                    g.fillRect(0, 0, img.width, img.height);
+                    g.drawImage(canvas, 0, Math.round(off * k), canvas.width, img.height, 0, 0, canvas.width, img.height);
+                }
+                const h = (cut - off) / PX;
+                pdf.addImage(img.toDataURL('image/jpeg', 0.8), 'JPEG', M, y, 180, h);
+                y += h;
+                off = cut;
+                if (off < total - 0.5) {
+                    pdf.addPage();
+                    y = M;
+                }
+            }
+        }
+        pdf.save(exportName(title) + '.pdf');
+    } finally {
+        frame.remove();
+    }
 }
 
 // SLIDES: one title slide, then one slide per note section (a long section continues on the next slide)
 function loadPptx() {
-    if (window.PptxGenJS) return Promise.resolve();
-    return new Promise((ok, fail) => {
-        const s = document.createElement('script');
-        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/PptxGenJS/3.12.0/pptxgen.bundle.js';
-        s.onload = ok;
-        s.onerror = () => fail(new Error('Could not load the slide maker. Please check your connection and try again.'));
-        document.head.appendChild(s);
-    });
+    return loadLib('lib/pptxgen.bundle.js', () => window.PptxGenJS, 'slide maker');
 }
 
 // splits a section's lines into slide-sized groups (about 9 lines of 20pt text fit one slide)
@@ -660,7 +787,7 @@ async function exportPptx(secs, title) {
         });
     });
     await pptx.writeFile({
-        fileName: exportName() + '.pptx'
+        fileName: exportName(title) + '.pptx'
     });
 }
 
@@ -668,10 +795,21 @@ function closeExport() {
     $('exportModal').hidden = true;
     $('exportMsg').hidden = true;
 }
-$('notesExport').addEventListener('click', () => {
-    if (!$('notesBody').querySelector('.note-sec')) return;
+// what the export box will save: {secs, title}. Either the note that is open, or a saved note picked on the home page.
+let exportTarget = null;
+
+function openExport(secs, title) {
+    exportTarget = {
+        secs: secs,
+        title: title
+    };
+    $('exportTitle').textContent = 'Export "' + title + '"';
     $('exportMsg').hidden = true;
     $('exportModal').hidden = false;
+}
+$('notesExport').addEventListener('click', () => {
+    const secs = notesForExport();
+    if (secs.length) openExport(secs, (current && current.title) || 'Study notes');
 });
 $('exportCancel').addEventListener('click', closeExport);
 $('exportModal').addEventListener('click', e => {
@@ -681,21 +819,20 @@ document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && !$('exportModal').hidden) closeExport();
 });
 document.querySelectorAll('#exportModal [data-fmt]').forEach(b => b.addEventListener('click', async () => {
-    const secs = notesForExport();
-    if (!secs.length) return;
-    const title = (current && current.title) || 'Study notes';
+    if (!exportTarget || !exportTarget.secs.length) return;
+    const secs = exportTarget.secs;
+    const title = exportTarget.title;
     const fmt = b.dataset.fmt;
     const msg = $('exportMsg');
     const all = document.querySelectorAll('#exportModal [data-fmt]');
     all.forEach(x => x.disabled = true);
     try {
-        if (fmt === 'pptx') {
-            msg.textContent = 'Making your slides…';
+        if (fmt === 'pptx' || fmt === 'pdf') {
+            msg.textContent = fmt === 'pdf' ? 'Making your PDF…' : 'Making your slides…';
             msg.classList.remove('warn');
             msg.hidden = false;
-            await exportPptx(secs, title);
-        } else if (fmt === 'pdf') exportPdf(secs, title);
-        else exportTxt(secs, title);
+            await (fmt === 'pdf' ? exportPdf(secs, title) : exportPptx(secs, title));
+        } else exportTxt(secs, title);
         closeExport();
     } catch (err) {
         msg.textContent = err.message || 'Could not export. Please try again.';
@@ -807,7 +944,7 @@ function startQuiz(questions, meta) {
         best = 0;
     const wrong = [];
 
-    // A note can have up to 4 files. When it has more than one, each question should say which file it came from.
+    // A note can have several files. When it has more than one, each question should say which file it came from.
     const files = (current && current.files) || [];
     const multi = files.length > 1;
     // q.source = the file the question came from (the real generator should set this).
@@ -1083,10 +1220,6 @@ let ttsBlob = null; // last WAV made + the text it was made from, so Play and Do
 let ttsBlobText = '';
 let ttsBusy = ''; // '' | 'play' | 'download'
 let ttsToken = 0; // bumped by Stop / leaving the panel, so a slow answer from Gemini is not played afterwards
-const TTS_LABELS = {
-    ttsPlay: 'Play',
-    ttsDownload: 'Download audio'
-};
 
 function stopSpeech() {
     ttsToken++;
@@ -1100,11 +1233,11 @@ function stopSpeech() {
 
 function setTtsBusy(kind, text) {
     ttsBusy = kind;
-    Object.keys(TTS_LABELS).forEach(id => {
+    // the two buttons that wait for Gemini are icons, so "busy" shows a small spinner instead of changing the text
+    ['ttsPlay', 'ttsDownload'].forEach(id => {
         $(id).disabled = !!kind;
-        $(id).textContent = TTS_LABELS[id];
+        $(id).classList.toggle('busy', (kind === 'play' && id === 'ttsPlay') || (kind === 'download' && id === 'ttsDownload'));
     });
-    if (kind) $(kind === 'play' ? 'ttsPlay' : 'ttsDownload').textContent = 'Making audio…';
     const m = $('ttsMsg');
     m.classList.remove('warn');
     if (text) {
@@ -1271,5 +1404,21 @@ if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)
     });
 }
 
-renderList(); // shows "Loading your notes…"
-refreshList(); // then fills the list from the notes table
+const deepNote = parseInt(new URLSearchParams(location.search).get('note'), 10) || 0;
+if (deepNote) {
+    // opened from a note's "open" link: skip the home page and go straight to that note once the list is loaded
+    $('viewHome').hidden = true;
+    refreshList().then(() => {
+        const l = lessons.find(x => x.id === deepNote);
+        if (l) {
+            openLesson(l.id);
+        } else {
+            setNoteUrl(0);
+            $('viewHome').hidden = false;
+            if (listState === 'ready') setHint('That note could not be found. It may have been deleted.', true);
+        }
+    });
+} else {
+    renderList(); // shows "Loading your notes…"
+    refreshList(); // then fills the list from the notes table
+}

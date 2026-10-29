@@ -62,7 +62,10 @@ try {
         60
     );
 } catch (AiException $e) {
-    fail(422, 'Game generation failed, please try again.');
+    // the real reason goes to ai_debug.log, and is also shown on the page when you run it on your own computer
+    ai_log('Game generation failed (template ' . $template . ', note ' . (int)($_REQUEST['note_id'] ?? 0) . '): ' . $e->getMessage());
+    $local = in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1'], true);
+    fail(422, 'Game generation failed, please try again.' . ($local ? ' (Reason: ' . $e->getMessage() . ')' : ''));
 }
 
 $_SESSION['game_data'] = $data;

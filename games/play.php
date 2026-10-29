@@ -29,4 +29,4 @@ if ($t === 'A') {
     }
 }
 
-include $t === 'B' ? 'templates/game_b.php' : 'templates/game_a.php';
+include $t === 'B' ? 'template/game_b.php' : 'template/game_a.php';

@@ -2,7 +2,7 @@
 /* JSON API used by studyhub.js.
    GET  api.php?action=list                      -> the user's notes (with file names)
    GET  api.php?action=get&id=N                  -> one note's saved content
-   POST api.php?action=create                    -> title, files (JSON [{name,size}]), 1-4 files
+   POST api.php?action=create                    -> title, files (JSON [{name,size}]), 1-20 files, all together up to 100 MB
    POST api.php?action=rename                    -> id, title
    POST api.php?action=delete                    -> id            (soft delete: sets notes.deleted_at)
    POST api.php?action=save_notes                -> id, content, mode, [as_new, title]
@@ -55,7 +55,8 @@ if (in_array($action, $writes, true)) {
 }
 
 const ALLOWED_FILE = '/\.(pdf|docx?|pptx?|txt|mp3|m4a|wav)$/i';
-const MAX_FILES = 4;
+const MAX_FILES = 20;       // safety cap on files per note (same number as studyhub.js)
+const MAX_TOTAL_MB = 100;   // all files of one note together (same number as studyhub.js)
 const MAX_CONTENT = 200000; // characters of notes text
 
 function clean_title(string $t): string
@@ -132,6 +133,10 @@ switch ($action) {
                 fail(400, 'Only PDF, Word, PowerPoint, text and audio files (mp3, m4a, wav) are supported.');
             }
             $clean[] = [$name, max(0, (int) ($f['size'] ?? 0))];
+        }
+        // the sizes are what the browser reports; when real file uploads are added, check the uploaded sizes here too
+        if (array_sum(array_column($clean, 1)) > MAX_TOTAL_MB * 1024 * 1024) {
+            fail(400, 'Your files add up to more than ' . MAX_TOTAL_MB . ' MB. Please pick fewer or smaller files.');
         }
         $title = clean_title((string) ($_POST['title'] ?? ''));
         if ($title === '') {
