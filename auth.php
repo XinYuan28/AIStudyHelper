@@ -11,9 +11,9 @@ require_once __DIR__ . '/db.php';
 const SHOW_DEMO_HINT = true;
 
 const DEMO_EMAIL    = 'demo@aisnh.com';
-const DEMO_PASSWORD = 'demo1234';
+const DEMO_PASSWORD = '';
 const DEMO_NAME     = 'Demo User';
-const SEED_DEMO_USER = true;   // true: the demo account above is created in `users` the first time it logs in. Set false to switch it off.
+const SEED_DEMO_USER = false;
 
 const LOGIN_MAX_FAILS  = 5;    // wrong passwords allowed ...
 const LOGIN_WINDOW_MIN = 15;   // ... within this many minutes, then login is paused for that email (table: login_attempts)
@@ -38,7 +38,7 @@ function find_user(string $email): ?array
     if ($row) {
         return user_from_row($row);
     }
-    if (SEED_DEMO_USER && $email === strtolower(DEMO_EMAIL)) {
+    if (SEED_DEMO_USER && DEMO_PASSWORD !== '' && $email === strtolower(DEMO_EMAIL)) {
         try {
             return create_user(DEMO_EMAIL, DEMO_PASSWORD, DEMO_NAME);
         } catch (PDOException $e) {

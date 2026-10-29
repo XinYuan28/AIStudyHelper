@@ -2,13 +2,18 @@
 /* Database connection and shared request helpers. */
 
 if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_set_cookie_params([
+        'httponly' => true,
+        'secure'   => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
+        'samesite' => 'Lax',
+    ]);
     session_start();
 }
 
-defined('DB_HOST') || define('DB_HOST', '127.0.0.1');
-defined('DB_NAME') || define('DB_NAME', 'ai_study_note');
-defined('DB_USER') || define('DB_USER', 'root');
-defined('DB_PASS') || define('DB_PASS', '');
+defined('DB_HOST') || define('DB_HOST', getenv('DB_HOST') ?: '127.0.0.1');
+defined('DB_NAME') || define('DB_NAME', getenv('DB_NAME') ?: 'ai_study_note');
+defined('DB_USER') || define('DB_USER', getenv('DB_USER') ?: 'ai_study_note');
+defined('DB_PASS') || define('DB_PASS', getenv('DB_PASS') ?: '');
 
 if (!function_exists('db')) {
     function db(): PDO

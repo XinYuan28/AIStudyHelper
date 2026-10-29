@@ -100,10 +100,10 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
             <div class="home-actions">
                 <button type="button" class="btn" id="homeQuiz">Generate quiz</button>
                 <button type="button" class="btn" id="homeNotes">Generate notes</button>
-                <p class="upload-hint" id="uploadHint">Tip: you can choose up to 4 files (PDF, Word, PowerPoint, text or audio) to make one set of notes.</p>
+                <p class="upload-hint" id="uploadHint">Tip: you can choose up to 10 files (PDF, Word, PowerPoint, spreadsheet or text) to make one set of notes.</p>
             </div>
 
-            <input type="file" id="fileInput" accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.mp3,.m4a,.wav" multiple hidden>
+            <input type="file" id="fileInput" accept=".pdf,.md,.csv,.rtf,.docx,.pptx,.xlsx,.odt" multiple hidden>
 
             <section class="notes-box" aria-label="Notes">
                 <div class="notes-head">

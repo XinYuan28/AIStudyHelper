@@ -1,6 +1,6 @@
 <?php
 require_once '../config_ai.php';
-require_once '../db.php';
+require_once '../auth.php';
 require_once '../ai.php';
 set_time_limit(150);
 $go = isset($_REQUEST['go']);
@@ -14,6 +14,7 @@ function fail($code, $msg) {
 }
 
 if (!isset($_SESSION[SESSION_USER_KEY])) fail(401, 'Not logged in');
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !csrf_ok()) fail(403, 'Your session expired. Please refresh the page.');
 $uid = (int)$_SESSION[SESSION_USER_KEY];
 
 $template = ($_REQUEST['t'] ?? 'A') === 'B' ? 'B' : 'A';

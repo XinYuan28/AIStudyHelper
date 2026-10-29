@@ -140,7 +140,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $savedNotes = $result['notes'];
         } catch (Throwable $ex) {
-            $errors[] = $ex->getMessage();
+            error_log('[upload.php] ' . $ex->getMessage());
+            $errors[] = 'We could not generate your notes right now. Please try again.';
         }
     }
 }

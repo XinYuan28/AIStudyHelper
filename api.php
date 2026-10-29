@@ -54,8 +54,8 @@ if (in_array($action, $writes, true)) {
     }
 }
 
-const ALLOWED_FILE = '/\.(pdf|docx?|pptx?|txt|mp3|m4a|wav)$/i';
-const MAX_FILES = 4;
+const ALLOWED_FILE = '/\.(pdf|md|csv|rtf|docx|pptx|xlsx|odt)$/i';
+const MAX_FILES = 10;
 const MAX_CONTENT = 200000; // characters of notes text
 
 function clean_title(string $t): string
@@ -129,7 +129,7 @@ switch ($action) {
         foreach ($files as $f) {
             $name = mb_substr(basename(str_replace('\\', '/', (string) ($f['name'] ?? ''))), 0, 255);
             if ($name === '' || !preg_match(ALLOWED_FILE, $name)) {
-                fail(400, 'Only PDF, Word, PowerPoint, text and audio files (mp3, m4a, wav) are supported.');
+                fail(400, 'Only PDF, text, Word, PowerPoint, spreadsheet and OpenDocument files are supported.');
             }
             $clean[] = [$name, max(0, (int) ($f['size'] ?? 0))];
         }

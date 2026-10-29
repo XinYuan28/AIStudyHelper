@@ -17,7 +17,8 @@ function tts_fail(int $code, string $msg): void
 // any PHP error becomes a readable message in the page instead of a blank "something went wrong"
 ini_set('display_errors', '0');
 set_exception_handler(function ($e) {
-    tts_fail(500, 'Server error: ' . $e->getMessage());
+    error_log('[api/tts.php] ' . $e->getMessage());
+    tts_fail(500, 'The audio service is temporarily unavailable.');
 });
 register_shutdown_function(function () {
     $err = error_get_last();
@@ -25,7 +26,8 @@ register_shutdown_function(function () {
         if (ob_get_level()) {
             ob_end_clean();
         }
-        tts_fail(500, 'Server error: ' . $err['message'] . ' (' . basename($err['file']) . ' line ' . $err['line'] . ')');
+        error_log('[api/tts.php] ' . $err['message'] . ' in ' . $err['file'] . ':' . $err['line']);
+        tts_fail(500, 'The audio service is temporarily unavailable.');
     }
 });
 ob_start();   // keeps stray output (warnings, notices) out of the audio file
@@ -126,7 +128,8 @@ function tts_call(string $chunk, array $speechConfig): array
         $cerr   = curl_error($ch);
         curl_close($ch);
         if ($raw === false) {
-            tts_fail(502, 'Could not reach the audio service. curl says: ' . ($cerr !== '' ? $cerr : 'no details'));
+            error_log('[api/tts.php] curl: ' . ($cerr !== '' ? $cerr : 'no details'));
+            tts_fail(502, 'Could not reach the audio service. Please try again.');
         }
         return [$status, $raw === false ? null : json_decode($raw, true)];
     }
@@ -142,11 +145,8 @@ function tts_call(string $chunk, array $speechConfig): array
     $raw = @file_get_contents($url, false, $ctx);
     if ($raw === false) {
         $why = error_get_last();
-        tts_fail(500, 'Could not reach the audio service. PHP says: ' . ($why['message'] ?? 'no details')
-            . ' [curl: ' . (function_exists('curl_init') ? 'on' : 'off')
-            . ', openssl: ' . (extension_loaded('openssl') ? 'on' : 'off')
-            . ', allow_url_fopen: ' . (ini_get('allow_url_fopen') ? 'on' : 'off')
-            . ', php.ini: ' . (php_ini_loaded_file() ?: 'none') . ']');
+        error_log('[api/tts.php] stream request: ' . ($why['message'] ?? 'no details'));
+        tts_fail(502, 'Could not reach the audio service. Please try again.');
     }
     $status = 0;
     if (!empty($http_response_header[0]) && preg_match('#\s(\d{3})\s#', $http_response_header[0], $m)) {
