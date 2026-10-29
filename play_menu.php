@@ -16,8 +16,9 @@ $notes = $stmt->fetchAll();
     .wrap{max-width:720px;margin:0 auto}
     .note{background:#fff;border-radius:10px;padding:14px 18px;margin:10px 0;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 1px 4px rgba(0,0,0,.08)}
     .note small{color:#888;display:block}
-    .btns a{display:inline-block;margin:3px;padding:8px 14px;border-radius:6px;background:#00b894;color:#fff;text-decoration:none;font-size:14px}
-    .btns a.b{background:#8faa7b}
+    .btns form{display:inline-block;margin:3px}
+    .btns button{padding:8px 14px;border:0;border-radius:6px;background:#00b894;color:#fff;font-size:14px;cursor:pointer}
+    .btns button.b{background:#8faa7b}
     </style>
     </head>
     <body>
@@ -31,8 +32,20 @@ $notes = $stmt->fetchAll();
         <div class="note">
           <div><strong><?= htmlspecialchars($n['title']) ?></strong><small><?= htmlspecialchars($n['created_at']) ?></small></div>
           <div class="btns">
-            <a href="api/generate_games.php?note_id=<?= (int)$n['id'] ?>&t=A&go=1">🦠 Tile Match</a>
-            <a class="b" href="api/generate_games.php?note_id=<?= (int)$n['id'] ?>&t=B&go=1">⌨️ Typing Game</a>
+            <form method="post" action="api/generate_games.php">
+              <?= csrf_field() ?>
+              <input type="hidden" name="note_id" value="<?= (int)$n['id'] ?>">
+              <input type="hidden" name="t" value="A">
+              <input type="hidden" name="go" value="1">
+              <button type="submit">🦠 Tile Match</button>
+            </form>
+            <form method="post" action="api/generate_games.php">
+              <?= csrf_field() ?>
+              <input type="hidden" name="note_id" value="<?= (int)$n['id'] ?>">
+              <input type="hidden" name="t" value="B">
+              <input type="hidden" name="go" value="1">
+              <button class="b" type="submit">⌨️ Typing Game</button>
+            </form>
           </div>
         </div>
       <?php endforeach; ?>

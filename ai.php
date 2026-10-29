@@ -154,7 +154,7 @@ TXT;
                 'topic'    => (string)($q['topic'] ?? 'General'),
             ];
         }
-        if (count($clean) < 4) return null;
+        if (count($clean) !== 8) return null;
         $clean = array_slice($clean, 0, 8);
 
         $subject = mb_substr(trim(strip_tags((string)($d['subject'] ?? ''))), 0, 100);

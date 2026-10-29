@@ -129,7 +129,7 @@ function renderList() {
     if (!lessons.length) {
         const e = el('div', 'empty');
         e.appendChild(el('b', '', 'No notes yet'));
-        e.appendChild(el('span', '', 'Click here or drop up to 4 files to upload your first study material.'));
+        e.appendChild(el('span', '', 'Click here or drop up to 10 files to upload your first study material.'));
         e.addEventListener('click', () => pick(null));
         ['dragover', 'dragenter'].forEach(t => e.addEventListener(t, ev => {
             ev.preventDefault();
@@ -238,9 +238,9 @@ $('fileInput').addEventListener('change', e => {
     e.target.value = '';
 });
 
-/* UP TO 4 FILES PER NOTE */
-const MAX_FILES = 4;
-const ALLOWED_EXT = /\.(pdf|docx?|pptx?|txt|mp3|m4a|wav)$/i;
+/* UP TO 10 FILES PER NOTE */
+const MAX_FILES = 10;
+const ALLOWED_EXT = /\.(pdf|md|csv|rtf|docx|pptx|xlsx|odt)$/i;
 const HINT_DEFAULT = $('uploadHint').textContent;
 let hintTimer;
 
@@ -262,7 +262,7 @@ function addLesson(fileList, action) {
         return;
     }
     if (files.some(f => !ALLOWED_EXT.test(f.name))) {
-        setHint('Only PDF, Word, PowerPoint, text and audio files (mp3, m4a, wav) are supported.', true);
+        setHint('Only PDF, text, Word, PowerPoint, spreadsheet and OpenDocument files are supported.', true);
         return;
     }
     setHint(HINT_DEFAULT, false);
@@ -807,7 +807,7 @@ function startQuiz(questions, meta) {
         best = 0;
     const wrong = [];
 
-    // A note can have up to 4 files. When it has more than one, each question should say which file it came from.
+    // When a note has more than one file, each question should say which file it came from.
     const files = (current && current.files) || [];
     const multi = files.length > 1;
     // q.source = the file the question came from (the real generator should set this).
