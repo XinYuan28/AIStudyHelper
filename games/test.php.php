@@ -1,7 +1,5 @@
 <?php
-session_start();
-require_once '../config_ai.php';
-if (!isset($_SESSION[SESSION_USER_KEY])) { header('Location: ../login.php'); exit; }
+require_once __DIR__ . '/test.php';
 
 $t = ($_GET['t'] ?? 'A') === 'B' ? 'B' : 'A';
 if ($t === 'A') {

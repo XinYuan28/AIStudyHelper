@@ -225,10 +225,9 @@ $('confirmOk').addEventListener('click', async () => {
 let pendingAction = null; 
 
 function pick(action) {
-    pendingAction = action;
-    $('fileInput').click();
+    window.location.href = 'upload.php?mode=' + (action === 'quiz' ? 'personalised' : 'general');
 }
-$('uploadBtn').addEventListener('click', () => pick(null));
+$('uploadBtn').addEventListener('click', () => pick('notes'));
 $('homeNotes').addEventListener('click', () => pick('notes'));
 $('homeQuiz').addEventListener('click', () => pick('quiz'));
 $('fileInput').addEventListener('change', e => {

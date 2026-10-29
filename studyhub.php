@@ -91,8 +91,8 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
 
         <!-- USER HOME -->
         <main class="home view" id="viewHome">
-            <video class="home-cat cat-video" autoplay loop muted playsinline preload="auto" poster="Images/note-cat-poster.png" aria-hidden="true" tabindex="-1">
-                <source src="Images/note-cat-gif.mp4" type="video/mp4">
+            <video class="home-cat cat-video" autoplay loop muted playsinline preload="auto" poster="Images/note_cat.svg" aria-hidden="true" tabindex="-1">
+                <source src="Images/note-cat-gif.MP4" type="video/mp4">
             </video>
             <h1 class="greeting" id="greeting">Hello, <?= htmlspecialchars($userName) ?>!</h1>
             <p class="greeting-sub">Upload your study materials and we'll take it from there.</p>
@@ -163,8 +163,8 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
 
                 <!-- START - GENERATE NOTES OR TAKE QUIZ -->
                 <div class="panel start" id="panel-start">
-                    <video class="home-cat cat-video" autoplay loop muted playsinline preload="auto" poster="Images/note-cat-poster.png" aria-hidden="true" tabindex="-1">
-                        <source src="Images/note-cat-gif.mp4" type="video/mp4">
+                    <video class="home-cat cat-video" autoplay loop muted playsinline preload="auto" poster="Images/note_cat.svg" aria-hidden="true" tabindex="-1">
+                        <source src="Images/note-cat-gif.MP4" type="video/mp4">
                     </video>
                     <h1 id="startTitle"></h1>
                     <p class="file-list" id="startFiles"></p>
