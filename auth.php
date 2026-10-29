@@ -3,7 +3,9 @@
 // The function names and what they return are the same as the old JSON-file demo,
 // so index.php and studyhub.php keep working. Accounts used to live in data/users.json;
 // that file is no longer read.
-session_start();
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
+}
 require_once __DIR__ . '/db.php';
 
 const SHOW_DEMO_HINT = true;

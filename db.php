@@ -1,7 +1,9 @@
 <?php
-/* Database connection for AI Study Note Helper (database: ai_study_note).
-   XAMPP default is user "root" with no password. Change these if your teammate's setup is different.
-   Everything is wrapped in "if not already defined" so it will not clash with auth.php. */
+/* Database connection and shared request helpers. */
+
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
+}
 
 defined('DB_HOST') || define('DB_HOST', '127.0.0.1');
 defined('DB_NAME') || define('DB_NAME', 'ai_study_note');
@@ -13,20 +15,86 @@ if (!function_exists('db')) {
     {
         static $pdo = null;
         if ($pdo === null) {
+            $options = [
+                PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES   => false,
+            ];
+            if (defined('PDO::MYSQL_ATTR_FOUND_ROWS')) {
+                $options[PDO::MYSQL_ATTR_FOUND_ROWS] = true;
+            }
             $pdo = new PDO(
                 'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4',
                 DB_USER,
                 DB_PASS,
-                [
-                    PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                    PDO::ATTR_EMULATE_PREPARES   => false,
-                    // rowCount() then means "rows that matched", even when the new value equals the old one
-                    PDO::MYSQL_ATTR_FOUND_ROWS   => true,
-                ]
+                $options
             );
         }
         return $pdo;
+    }
+}
+
+// Legacy uploaded pages use $pdo directly; keep one lazy connection for both APIs.
+if (!isset($pdo)) {
+    $pdo = db();
+}
+
+if (!function_exists('h')) {
+    function h($value): string
+    {
+        return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
+    }
+}
+
+if (!function_exists('e')) {
+    function e($value): string
+    {
+        return h($value);
+    }
+}
+
+if (!function_exists('csrf_token')) {
+    function csrf_token(): string
+    {
+        if (empty($_SESSION['csrf'])) {
+            $_SESSION['csrf'] = bin2hex(random_bytes(32));
+        }
+        return $_SESSION['csrf'];
+    }
+}
+
+if (!function_exists('csrf_field')) {
+    function csrf_field(): string
+    {
+        return '<input type="hidden" name="csrf" value="' . h(csrf_token()) . '">';
+    }
+}
+
+if (!function_exists('csrf_check')) {
+    function csrf_check(): void
+    {
+        if (!isset($_POST['csrf'], $_SESSION['csrf'])
+            || !hash_equals((string) $_SESSION['csrf'], (string) $_POST['csrf'])) {
+            http_response_code(400);
+            exit('Invalid request.');
+        }
+    }
+}
+
+if (!function_exists('require_login')) {
+    function require_login(): void
+    {
+        if (empty($_SESSION['user_id'])) {
+            header('Location: index.php');
+            exit;
+        }
+    }
+}
+
+if (!function_exists('normalize_email')) {
+    function normalize_email($email): string
+    {
+        return strtolower(trim((string) $email));
     }
 }
 

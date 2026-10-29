@@ -31,8 +31,8 @@ $notes = $stmt->fetchAll();
         <div class="note">
           <div><strong><?= htmlspecialchars($n['title']) ?></strong><small><?= htmlspecialchars($n['created_at']) ?></small></div>
           <div class="btns">
-            <a href="api/generate_game.php?note_id=<?= (int)$n['id'] ?>&t=A&go=1">🦠 Tile Match</a>
-            <a class="b" href="api/generate_game.php?note_id=<?= (int)$n['id'] ?>&t=B&go=1">⌨️ Typing Game</a>
+            <a href="api/generate_games.php?note_id=<?= (int)$n['id'] ?>&t=A&go=1">🦠 Tile Match</a>
+            <a class="b" href="api/generate_games.php?note_id=<?= (int)$n['id'] ?>&t=B&go=1">⌨️ Typing Game</a>
           </div>
         </div>
       <?php endforeach; ?>

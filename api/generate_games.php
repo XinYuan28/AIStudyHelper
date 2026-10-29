@@ -1,7 +1,8 @@
 <?php
 require_once '../config_ai.php';
 require_once '../db.php';
-set_time_limit(120);
+require_once '../ai.php';
+set_time_limit(150);
 $go = isset($_REQUEST['go']);
 
 function fail($code, $msg) {
@@ -13,14 +14,14 @@ function fail($code, $msg) {
 }
 
 if (!isset($_SESSION[SESSION_USER_KEY])) fail(401, 'Not logged in');
+$uid = (int)$_SESSION[SESSION_USER_KEY];
 
 $template = ($_REQUEST['t'] ?? 'A') === 'B' ? 'B' : 'A';
-
 
 $notes = trim($_POST['notes'] ?? '');
 if ($notes === '' && isset($_REQUEST['note_id'])) {
     $stmt = $pdo->prepare("SELECT content FROM notes WHERE id = ? AND user_id = ?");
-    $stmt->execute([(int)$_REQUEST['note_id'], (int)$_SESSION[SESSION_USER_KEY]]);
+    $stmt->execute([(int)$_REQUEST['note_id'], $uid]);
     $row = $stmt->fetch();
     $notes = trim($row['content'] ?? '');
 }
@@ -38,28 +39,6 @@ function buildPrompt($notes, $template) {
     return "Using ONLY the study notes below, $rule\nReturn ONLY valid JSON matching this exact structure, no markdown, no extra text:\n$schema\n\nNOTES:\n$notes";
 }
 
-function callAI($prompt) {
-    $url = 'https://generativelanguage.googleapis.com/v1beta/models/' . AI_MODEL . ':generateContent';
-    $ch = curl_init($url);
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_POST => true,
-        CURLOPT_TIMEOUT => 60,
-        CURLOPT_SSL_VERIFYPEER => false,
-        CURLOPT_HTTPHEADERS => [
-            'Content-Type: application/json',
-            'x-goog-api-key: ' . AI_API_KEY,
-        ],
-        CURLOPT_POSTFIELDS => json_encode([
-            'contents' => [['parts' => [['text' => $prompt]]]],
-            'generationConfig' => ['responseMimeType' => 'application/json'],
-        ]),
-    ]);
-    $res = json_decode(curl_exec($ch), true);
-    curl_close($ch);
-    return $res['candidates'][0]['content']['parts'][0]['text'] ?? '';
-}
-
 function validateGame($d, $t) {
     if (!is_array($d) || ($d['template'] ?? '') !== $t) return false;
     if ($t === 'A') {
@@ -75,15 +54,16 @@ function validateGame($d, $t) {
     return true;
 }
 
-$data = null;
-for ($i = 0; $i < 3; $i++) {
-    $raw = callAI(buildPrompt($notes, $template));
-    $raw = trim(preg_replace('/^```json|```$/m', '', $raw));
-    $data = json_decode($raw, true);
-    if (validateGame($data, $template)) break;
-    $data = null;
+try {
+    [$data, $attempts] = ai_run(
+        [['text' => buildPrompt($notes, $template)]],
+        fn($d) => validateGame($d, $template) ? $d : null,
+        8000,
+        60
+    );
+} catch (AiException $e) {
+    fail(422, 'Game generation failed, please try again.');
 }
-if (!$data) fail(422, 'Game generation failed, please try again');
 
 $_SESSION['game_data'] = $data;
 
