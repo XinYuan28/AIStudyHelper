@@ -38,6 +38,18 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
             </div>
         </div>
 
+        <!-- LOG OUT CONFIRM -->
+        <div class="modal" id="logoutConfirmModal" role="dialog" aria-modal="true" aria-labelledby="logoutConfirmTitle" hidden>
+            <div class="modal-box">
+                <h3 id="logoutConfirmTitle">Log out?</h3>
+                <p>Are you sure you want to log out of your account?</p>
+                <div class="actions">
+                    <button type="button" class="btn ghost small" id="logoutCancel">Cancel</button>
+                    <button type="button" class="btn danger small" id="logoutConfirm">Log out</button>
+                </div>
+            </div>
+        </div>
+
         <!-- NAME YOUR NOTES -->
         <div class="modal" id="nameModal" role="dialog" aria-modal="true" aria-labelledby="nameTitle" hidden>
             <form class="modal-box" id="nameForm">

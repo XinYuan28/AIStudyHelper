@@ -163,33 +163,84 @@ function renderList() {
         open.setAttribute('aria-label', 'Open ' + l.title + ' in a new tab');
         open.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>';
 
-        const edit = el('button', 'edit-btn');
+        const edit = el('button', 'note-menu-item');
         edit.type = 'button';
-        edit.title = 'Rename note';
-        edit.setAttribute('aria-label', 'Rename ' + l.title);
+        edit.setAttribute('role', 'menuitem');
         edit.innerHTML = pencilIcon;
+        edit.appendChild(el('span', '', 'Rename'));
         edit.addEventListener('click', () => askRename(l));
 
-        const conv = el('button', 'convert-btn');
+        const conv = el('button', 'note-menu-item');
         conv.type = 'button';
-        conv.title = 'Convert to PDF, slides or text';
-        conv.setAttribute('aria-label', 'Convert ' + l.title + ' to PDF, slides or text');
+        conv.setAttribute('role', 'menuitem');
         conv.innerHTML = convertIcon;
+        conv.appendChild(el('span', '', 'Export'));
         conv.addEventListener('click', () => convertNote(l, conv));
 
-        const del = el('button', 'del-btn');
+        const del = el('button', 'note-menu-item danger');
         del.type = 'button';
-        del.title = 'Delete note';
-        del.setAttribute('aria-label', 'Delete ' + l.title);
+        del.setAttribute('role', 'menuitem');
         del.innerHTML = trashIcon;
+        del.appendChild(el('span', '', 'Delete'));
         del.addEventListener('click', () => askDelete(l));
 
         const acts = el('div', 'note-actions');
-        acts.append(open, edit, conv, del);
+        const menuWrap = el('div', 'note-menu-wrap');
+        const menuToggle = el('button', 'note-menu-toggle');
+        menuToggle.type = 'button';
+        menuToggle.setAttribute('aria-label', 'More actions for ' + l.title);
+        menuToggle.setAttribute('aria-haspopup', 'menu');
+        menuToggle.setAttribute('aria-expanded', 'false');
+        menuToggle.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>';
+        const menu = el('div', 'note-menu');
+        menu.setAttribute('role', 'menu');
+        menu.hidden = true;
+        menu._noteMenuWrap = menuWrap;
+        menu.append(edit, conv, del);
+        menuToggle.addEventListener('click', () => {
+            const willOpen = menu.hidden;
+            closeNoteMenus();
+            if (!willOpen) return;
+            document.body.appendChild(menu);
+            menu.hidden = false;
+            menuToggle.setAttribute('aria-expanded', 'true');
+            const rect = menuToggle.getBoundingClientRect();
+            const menuWidth = menu.offsetWidth;
+            const menuHeight = menu.offsetHeight;
+            const left = Math.max(8, Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8));
+            const below = window.innerHeight - rect.bottom;
+            const top = below >= menuHeight + 8 || rect.top < menuHeight + 8
+                ? Math.min(rect.bottom + 8, window.innerHeight - menuHeight - 8)
+                : rect.top - menuHeight - 8;
+            menu.style.left = left + 'px';
+            menu.style.top = Math.max(8, top) + 'px';
+        });
+        menu.addEventListener('click', closeNoteMenus);
+        menuWrap.append(menuToggle, menu);
+        acts.append(open, menuWrap);
         row.append(ico, info, acts);
         box.appendChild(row);
     });
 }
+
+function closeNoteMenus() {
+    document.querySelectorAll('.note-menu').forEach(menu => {
+        menu.hidden = true;
+        menu.style.left = '';
+        menu.style.top = '';
+        if (menu._noteMenuWrap) menu._noteMenuWrap.appendChild(menu);
+    });
+    document.querySelectorAll('.note-menu-toggle').forEach(button => button.setAttribute('aria-expanded', 'false'));
+}
+
+document.addEventListener('click', e => {
+    if (e.target.closest('.note-menu') || e.target.closest('.note-menu-toggle')) return;
+    closeNoteMenus();
+});
+document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    closeNoteMenus();
+});
 
 const pencilIcon = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4zM13.5 6.5l4 4" /></svg>';
 
@@ -253,6 +304,25 @@ $('confirmOk').addEventListener('click', async () => {
         setHint(err.message, true);
     }
     renderList();
+});
+
+/* LOG OUT WITH CONFIRMATION */
+const logoutModal = $('logoutConfirmModal');
+const logoutLink = $('logoutLink');
+logoutLink.addEventListener('click', e => {
+    e.preventDefault();
+    logoutModal.hidden = false;
+    $('logoutCancel').focus();
+});
+$('logoutCancel').addEventListener('click', () => { logoutModal.hidden = true; });
+logoutModal.addEventListener('click', e => {
+    if (e.target === logoutModal) logoutModal.hidden = true;
+});
+$('logoutConfirm').addEventListener('click', () => {
+    window.location.href = logoutLink.href;
+});
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !logoutModal.hidden) logoutModal.hidden = true;
 });
 
 /* UPLOAD / GENERATE FROM HOME */

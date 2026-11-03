@@ -394,7 +394,7 @@ body.home-active {
     margin: 1.1rem 0 auto;
 }
 
-/* UPLOAD HINT (up to 4 files per note) */
+/* UPLOAD HINT */
 .upload-hint {
     flex: 0 0 100%;
     margin-top: .2rem;
@@ -418,9 +418,9 @@ body.home-active {
 .notes-box {
     margin-top: 1.2rem;
     flex: 0 1 auto;
-    height: 38vh;
+    height: 48vh;
     min-height: 150px;
-    max-height: 400px;
+    max-height: 480px;
     display: flex;
     flex-direction: column;
     padding: 1rem 1rem 1rem 1.2rem;
@@ -447,14 +447,17 @@ body.home-active {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
+    overflow-x: hidden;
     display: flex;
     flex-direction: column;
     gap: .7rem;
-    padding: .1rem .6rem .2rem 0;
+    padding: .1rem 0 .2rem;
 }
 
 .note-row {
     flex: none;
+    width: 100%;
+    min-width: 0;
     display: flex;
     align-items: center;
     gap: .9rem;
@@ -542,7 +545,84 @@ body.home-active {
     flex: none;
     display: flex;
     align-items: center;
-    gap: .5rem;
+    gap: .4rem;
+}
+
+.note-menu-wrap {
+    position: relative;
+}
+
+.note-menu-toggle {
+    width: 42px;
+    height: 42px;
+    display: grid;
+    place-items: center;
+    background: var(--card);
+    color: var(--muted);
+    border: 1.5px solid var(--line);
+    border-radius: 12px;
+    cursor: pointer;
+}
+
+.note-menu-toggle:hover,
+.note-menu-toggle[aria-expanded="true"] {
+    color: var(--primary);
+    border-color: var(--primary);
+    background: var(--tint);
+}
+
+.note-menu-toggle svg {
+    width: 22px;
+    height: 22px;
+    fill: currentColor;
+}
+
+.note-menu {
+    position: fixed;
+    z-index: 1000;
+    top: 0;
+    left: 0;
+    width: 176px;
+    padding: .35rem;
+    background: var(--card);
+    border: 1.5px solid var(--line);
+    border-radius: 14px;
+    box-shadow: 0 12px 28px rgba(25, 15, 20, .14);
+}
+
+.note-menu[hidden] {
+    display: none;
+}
+
+.note-menu-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: .7rem;
+    padding: .65rem .75rem;
+    color: var(--ink);
+    background: transparent;
+    border: 0;
+    border-radius: 9px;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.note-menu-item:hover,
+.note-menu-item:focus-visible {
+    background: var(--tint);
+    color: var(--primary);
+}
+
+.note-menu-item svg {
+    flex: none;
+}
+
+.note-menu-item.danger,
+.note-menu-item.danger:hover,
+.note-menu-item.danger:focus-visible {
+    color: var(--bad);
 }
 
 .del-btn,
@@ -1434,7 +1514,7 @@ body.home-active {
     }
 }
 
-/* SAVED NOTES on narrow screens: the four icon buttons move under the title so the title stays readable */
+/* SAVED NOTES on narrow screens: actions move below the title so it stays readable */
 @media (max-width: 600px) {
     .note-row {
         flex-wrap: wrap;
@@ -1448,4 +1528,5 @@ body.home-active {
         flex: 0 0 100%;
         justify-content: flex-end;
     }
+
 }
