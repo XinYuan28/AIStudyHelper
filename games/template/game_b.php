@@ -446,6 +446,10 @@ footer {
 
 <!-- start overlay -->
 <div id="startOverlay" class="overlay">
+    <a href="../play_menu.php"
+   style="position: fixed; top: 16px; left: 16px; z-index: 10; padding: 8px 12px; background: #fff; color: #222; border-radius: 8px; text-decoration: none;">
+    ← Back to Play Menu
+</a>
   <div class="start-card">
     <h2>⌨️ KeyForge</h2>
     <div class="instructions">
