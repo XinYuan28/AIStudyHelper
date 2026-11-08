@@ -7,8 +7,8 @@ $email = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
-    $email  = strtolower(trim($_POST['email'] ?? ''));
-    $pass   = $_POST['password'] ?? '';
+    $email  = normalize_email(is_string($_POST['email'] ?? null) ? $_POST['email'] : '');
+    $pass   = is_string($_POST['password'] ?? null) ? $_POST['password'] : '';
     $mode   = $action === 'login' ? 'login' : 'signup';
 
     if (!csrf_ok()) {
@@ -35,10 +35,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif (find_user($email)) {
             $error = 'That email already has an account. Try logging in.';
         } else {
-            $user = create_user($email, $pass);
-            login_user($email, $user);
-            header('Location: studyhub.php');
-            exit;
+            try {
+                $user = create_user($email, $pass);
+            } catch (PDOException $e) {
+                if ((int) ($e->errorInfo[1] ?? 0) !== 1062) throw $e;
+                $error = 'That email already has an account. Try logging in.';
+                $user = null;
+            }
+            if ($user) {
+                login_user($email, $user);
+                header('Location: studyhub.php');
+                exit;
+            }
         }
     }
 }

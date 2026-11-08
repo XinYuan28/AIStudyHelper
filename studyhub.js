@@ -1,4 +1,4 @@
-/* Study Hub logic. Needs sample-data.js, window.STUDYHUB_USER and window.STUDYHUB_CSRF (all loaded/set by studyhub.php first).
+/* Study Hub logic. Needs window.STUDYHUB_USER and window.STUDYHUB_CSRF (set by studyhub.php first).
    Notes, files and quiz results are saved in the database through api.php. */
 
 /* HELPERS */
@@ -36,7 +36,10 @@ async function apiCall(action, fields, method) {
     if (method === 'POST') {
         const fd = new FormData();
         fd.append('csrf', window.STUDYHUB_CSRF);
-        Object.entries(fields || {}).forEach(([k, v]) => fd.append(k, v));
+        Object.entries(fields || {}).forEach(([k, v]) => {
+            if (Array.isArray(v)) v.forEach(item => fd.append(k + '[]', item));
+            else fd.append(k, v);
+        });
         opts.method = 'POST';
         opts.body = fd;
     } else if (fields) {
@@ -75,6 +78,19 @@ let listState = 'loading'; // 'loading' | 'ready' | 'error'
 let listError = '';
 let current = null;
 let notesText = '';
+let speechText = '';
+let currentQuestions = [];
+
+function normaliseQuestions(questions) {
+    return (questions || []).map(q => ({
+        q: q.q || q.question || '',
+        options: Array.isArray(q.options) ? q.options : [],
+        answer: Number(q.answer),
+        topic: q.topic || 'General',
+        explain: q.explain || '',
+        type: q.type || 'mcq'
+    })).filter(q => q.q && q.options.length === 4 && Number.isInteger(q.answer) && q.answer >= 0 && q.answer < q.options.length);
+}
 
 async function refreshList() {
     try {
@@ -174,7 +190,7 @@ function renderList() {
         conv.type = 'button';
         conv.setAttribute('role', 'menuitem');
         conv.innerHTML = convertIcon;
-        conv.appendChild(el('span', '', 'Export'));
+        conv.appendChild(el('span', '', 'Export to PDF…'));
         conv.addEventListener('click', () => convertNote(l, conv));
 
         const del = el('button', 'note-menu-item danger');
@@ -347,8 +363,8 @@ $('fileInput').addEventListener('change', e => {
    (api.php has the same two numbers; change them in both places.) */
 const MAX_TOTAL_MB = 100;
 const MAX_FILES = 20; // only a safety net so one note does not get hundreds of files
-const ALLOWED_EXT = /\.(pdf|docx?|pptx?|txt|mp3|m4a|wav)$/i;
-const HINT_DEFAULT = 'Tip: you can add several files (PDF, Word, PowerPoint, text or audio), up to ' + MAX_TOTAL_MB + ' MB in total, to make one set of notes.';
+const ALLOWED_EXT = /\.(pdf|docx|pptx|xlsx|odt|rtf|txt|md|csv|mp3|m4a|wav)$/i;
+const HINT_DEFAULT = 'Tip: you can add several files (PDF, Word, PowerPoint, spreadsheet, text or audio), up to ' + MAX_TOTAL_MB + ' MB in total, to make one set of notes.';
 $('uploadHint').textContent = HINT_DEFAULT;
 let hintTimer;
 
@@ -379,20 +395,24 @@ function addLesson(fileList, action) {
     if (!files.length) return;
     // reject the whole selection (instead of quietly dropping files) so the user knows what happened
     if (files.some(f => !ALLOWED_EXT.test(f.name))) {
-        setHint('Only PDF, Word, PowerPoint, text and audio files (mp3, m4a, wav) are supported.', true);
+        setHint('Only PDF, Word, PowerPoint, spreadsheet, text and audio files are supported.', true);
         return;
     }
     if (files.length > MAX_FILES) {
         setHint('You selected ' + files.length + ' files, but one note can have up to ' + MAX_FILES + '. Please pick fewer files.', true);
         return;
     }
+    if (files.some(file => file.size > window.STUDYHUB_UPLOAD_BYTES)) {
+        setHint('A file exceeds ' + fmtSize(window.STUDYHUB_UPLOAD_BYTES) + '. Re-upload the entire batch at smaller sizes.', true);
+        return;
+    }
     const total = files.reduce((a, f) => a + f.size, 0);
     if (total > MAX_TOTAL_MB * 1024 * 1024) {
-        setHint('Your files add up to ' + fmtSize(total) + ', but one note can hold up to ' + MAX_TOTAL_MB + ' MB in total. Please pick fewer or smaller files.', true);
+        setHint('Your files add up to ' + fmtSize(total) + ', but one note can hold up to ' + MAX_TOTAL_MB + ' MB in total. Re-upload the entire batch at smaller sizes.', true);
         return;
     }
     setHint(HINT_DEFAULT, false);
-    askName(files.map(f => f.name), action, files.map(f => f.size));
+    askName(files.map(f => f.name), action, files.map(f => f.size), files);
 }
 
 /* NAME YOUR NOTES (shown after the files are picked) */
@@ -415,11 +435,12 @@ function openNameBox(heading, okText, files, value) {
     $('nameInput').select();
 }
 
-function askName(names, action, sizes) {
+function askName(names, action, sizes, files) {
     pendingRename = null;
     pendingUpload = {
         names: names,
         sizes: sizes || [],
+        files: files || [],
         action: action
     };
     openNameBox('Name your notes', 'Continue', filesSummary(names, sizes), defaultName(names));
@@ -468,19 +489,16 @@ $('nameForm').addEventListener('submit', async e => {
     const up = pendingUpload;
     const title = $('nameInput').value.trim() || defaultName(up.names);
     closeName();
-    createLesson(title, up.names, up.action, up.sizes);
+    createLesson(title, up.names, up.action, up.sizes, up.files);
 });
 
 // saves the note and its files in the database first, then opens it
-async function createLesson(title, names, action, sizes) {
+async function createLesson(title, names, action, sizes, files) {
     let r;
     try {
         r = await apiCall('create', {
             title: title,
-            files: JSON.stringify(names.map((n, i) => ({
-                name: n,
-                size: (sizes && sizes[i]) || 0
-            })))
+            uploads: files
         }, 'POST');
     } catch (err) {
         setHint(err.message, true);
@@ -493,9 +511,11 @@ async function createLesson(title, names, action, sizes) {
         updated: Date.now()
     };
     lessons.unshift(l);
+    currentQuestions = normaliseQuestions(r.questions);
+    notesText = r.notes || '';
     openLesson(l.id, true);
     if (action === 'notes') buildNotes('full');
-    else if (action === 'quiz') startQuiz(SAMPLE_QUESTIONS.slice());
+    else if (action === 'quiz') startQuiz(currentQuestions.slice(0, 8));
 }
 
 /* NAVIGATION */
@@ -528,7 +548,11 @@ function openLesson(id, fresh) {
     current = lessons.find(l => l.id === id);
     if (!current) return;
     setNoteUrl(current.id);
-    notesText = '';
+    speechText = '';
+    if (!fresh) {
+        notesText = '';
+        currentQuestions = [];
+    }
     $('notesBody').textContent = '';
     $('notesLead').textContent = '';
     $('notesSaved').hidden = true;
@@ -548,12 +572,20 @@ function openLesson(id, fresh) {
         apiCall('get', {
             id: openedId
         }).then(r => {
-            const stillHere = current && current.id === openedId && !$('panel-start').hidden && !notesText;
+            if (!current || current.id !== openedId) return;
+            const stillHere = !$('panel-start').hidden && !notesText;
+            currentQuestions = normaliseQuestions(r.questions);
+            if (!$('panel-custom').hidden) updateQuizCount();
+            if (!notesText) notesText = r.content || '';
             if (stillHere && r.content) {
                 renderNotes(parseNotes(r.content), r.mode === 'personalised' ? 'Focus notes made from your quiz mistakes.' : 'Generated from your study materials.', '');
                 showPanel('notes');
             }
-        }).catch(() => {}); // if this fails the user can still generate notes as usual
+        }).catch(err => {
+            if (current && current.id === openedId) {
+                $('startFiles').textContent = err.message;
+            }
+        });
     }
 }
 
@@ -565,6 +597,8 @@ function showPanel(name) {
         top: 0
     });
     if (name === 'tts') fillTts();
+    if (name === 'custom') updateQuizCount();
+    if (name === 'game') loadQuizHistory();
 }
 
 $('crumbHome').addEventListener('click', showHome);
@@ -582,14 +616,14 @@ document.querySelectorAll('.side-item[data-panel]').forEach(b => b.addEventListe
     if (p === 'notes' && !notesText && !$('quizArea').childElementCount) showPanel('start');
     else if (p === 'game' && !$('quizArea').childElementCount && !notesText) showPanel('start');
     else if (p === 'notes' && !notesText) buildNotes('full');
-    else if (p === 'game' && !$('quizArea').childElementCount) startQuiz(SAMPLE_QUESTIONS.slice());
+    else if (p === 'game' && !$('quizArea').childElementCount) startQuiz(currentQuestions.slice(0, 8));
     else showPanel(p);
 }));
 
 $('chooseNotes').addEventListener('click', () => buildNotes('full'));
-$('chooseQuiz').addEventListener('click', () => startQuiz(SAMPLE_QUESTIONS.slice()));
+$('chooseQuiz').addEventListener('click', () => startQuiz(currentQuestions.slice(0, 8)));
 $('notesToTts').addEventListener('click', () => showPanel('tts'));
-$('notesToQuiz').addEventListener('click', () => startQuiz(SAMPLE_QUESTIONS.slice()));
+$('notesToQuiz').addEventListener('click', () => startQuiz(currentQuestions.slice(0, 8)));
 
 /* EXPORT NOTES: PDF, slides (.pptx) or plain text. Everything is made in the browser (libraries are in the lib folder). */
 function notesForExport() {
@@ -652,6 +686,23 @@ const PDF_CSS = 'body{margin:0;width:680px;font-family:"Segoe UI",Inter,system-u
     '.blk{padding:0 0 18px;background:#fff}' +
     'h2{font-size:18.7px;line-height:1.3;margin:0 0 6px}' +
     'p{margin:0 0 5px}.li{position:relative;padding-left:22px;margin:0 0 3px}.li:before{content:"\\2022";position:absolute;left:8px}';
+
+function exportHtml(secs, title) {
+    const page = document.implementation.createHTMLDocument(title);
+    const charset = page.createElement('meta');
+    charset.setAttribute('charset', 'utf-8');
+    page.head.prepend(charset);
+    const style = page.createElement('style');
+    style.textContent = 'body{font:1rem/1.6 system-ui;max-width:48rem;margin:2rem auto;padding:0 1rem}p{white-space:pre-wrap;overflow-wrap:anywhere}';
+    page.head.append(style);
+    page.body.append(el('h1', '', title));
+    secs.forEach(({ h, p }) => {
+        const section = el('section');
+        section.append(el('h2', '', h), el('p', '', p));
+        page.body.append(section);
+    });
+    downloadBlob(new Blob(['<!doctype html>\n', page.documentElement.outerHTML], { type: 'text/html;charset=utf-8' }), exportName(title) + '.html');
+}
 
 async function exportPdf(secs, title) {
     await loadLib('lib/html2canvas.min.js', () => window.html2canvas, 'PDF maker');
@@ -902,7 +953,8 @@ document.querySelectorAll('#exportModal [data-fmt]').forEach(b => b.addEventList
             msg.classList.remove('warn');
             msg.hidden = false;
             await (fmt === 'pdf' ? exportPdf(secs, title) : exportPptx(secs, title));
-        } else exportTxt(secs, title);
+        } else if (fmt === 'html') exportHtml(secs, title);
+        else exportTxt(secs, title);
         closeExport();
     } catch (err) {
         msg.textContent = err.message || 'Could not export. Please try again.';
@@ -944,7 +996,7 @@ function renderNotes(sections, lead, tag) {
         if (s.p) d.appendChild(el('p', '', s.p));
         body.appendChild(d);
     });
-    notesText = sections.map(s => s.p ? s.h + '. ' + s.p.replace(/^\s*[-•*]\s*/gm, '') : s.h).join('\n\n');
+    speechText = sections.map(s => s.p ? s.h + '. ' + s.p.replace(/^\s*[-•*]\s*/gm, '') : s.h).join('\n\n');
 }
 
 function showSaveMsg(text, warn) {
@@ -954,31 +1006,25 @@ function showSaveMsg(text, warn) {
     m.hidden = false;
 }
 
-async function saveNotes(sections, personalised) {
+async function saveFocusNotes(sections) {
     if (!current) return;
-    const id = current.id;
+    const { id, title } = current;
+    const focusTitle = title + ' (focus notes)';
     try {
-        if (personalised) {
-            // quiz-mistake notes become their own note, so the full notes are never overwritten
-            await apiCall('save_notes', {
-                id: id,
-                as_new: 1,
-                mode: 'personalised',
-                title: current.title + ' (focus notes)',
-                content: serializeNotes(sections)
-            }, 'POST');
-            showSaveMsg('Saved as a new note called "' + current.title + ' (focus notes)". You will find it on your home page.');
-        } else {
-            await apiCall('save_notes', {
-                id: id,
-                mode: 'general',
-                content: serializeNotes(sections)
-            }, 'POST');
-            current.updated = Date.now();
-            showSaveMsg('Saved to your notes.');
+        const saved = await apiCall('save_notes', {
+            id: id,
+            as_new: 1,
+            mode: 'personalised',
+            title: focusTitle,
+            content: serializeNotes(sections)
+        }, 'POST');
+        if (current && current.id === id) {
+            showSaveMsg('Saved as a new note called "' + saved.title + '". You will find it on your home page.');
         }
     } catch (err) {
-        showSaveMsg('Could not save these notes: ' + err.message, true);
+        if (current && current.id === id) {
+            showSaveMsg('Could not save these notes: ' + err.message, true);
+        }
     }
 }
 
@@ -988,16 +1034,16 @@ function buildNotes(mode, wrong) {
     if (personalised) {
         sections = wrong.map(w => ({
             h: w.topic + ': ' + w.q,
-            p: w.explain + ' Correct answer: ' + correctText(w) + '.'
+            p: 'Your answer: ' + (w.type === 'text' ? w.picked : w.options[w.picked]) + '\nCorrect answer: ' + correctText(w) + (w.explain ? '\n' + w.explain : '')
         }));
         renderNotes(sections, 'Focused notes based on the questions you answered wrongly.', 'From your quiz mistakes');
     } else {
-        sections = SAMPLE_NOTES;
+        sections = notesText ? parseNotes(notesText) : [];
         renderNotes(sections, 'Generated from your study materials.', '');
     }
     $('notesSaved').hidden = true;
     showPanel('notes');
-    saveNotes(sections, !!personalised);
+    if (personalised) saveFocusNotes(sections);
 }
 
 /* GAME QUIZ AND CUSTOM QUIZ */
@@ -1007,6 +1053,11 @@ function startQuiz(questions, meta) {
         difficulty: 'Medium',
         type: 'mcq'
     }, meta);
+    if (!questions || !questions.length) {
+        setHint('This quiz has no generated questions yet. Upload study material to create one.', true);
+        showPanel('start');
+        return;
+    }
     const area = $('quizArea');
     let i = 0,
         score = 0,
@@ -1017,8 +1068,6 @@ function startQuiz(questions, meta) {
     // A note can have several files. When it has more than one, each question should say which file it came from.
     const files = (current && current.files) || [];
     const multi = files.length > 1;
-    // q.source = the file the question came from (the real generator should set this).
-    // Until then, the sample questions are spread over the note's files so the layout can be tested.
     const fileOf = (q, n) => q.source || (multi ? files[n % files.length] : '');
 
     function renderQ() {
@@ -1216,6 +1265,7 @@ function startQuiz(questions, meta) {
                 weak_areas: weakNames.join(', ')
             }, 'POST').then(() => {
                 msg.textContent = 'Your result is saved.';
+                loadQuizHistory();
             }).catch(err => {
                 msg.textContent = 'Could not save this result: ' + err.message;
                 msg.classList.add('warn');
@@ -1238,7 +1288,8 @@ const DIFF_LABELS = {
 // paint the slider track up to the thumb and update the label next to the field name
 function bindSlider(input, out, format) {
     function update() {
-        const pct = (input.value - input.min) / (input.max - input.min) * 100;
+        const range = input.max - input.min;
+        const pct = range ? (input.value - input.min) / range * 100 : 0;
         input.style.setProperty('--fill', pct + '%');
         out.textContent = format(input.value);
     }
@@ -1248,18 +1299,27 @@ function bindSlider(input, out, format) {
 bindSlider($('numQuestions'), $('numValue'), v => v);
 bindSlider($('difficulty'), $('diffValue'), v => DIFF_LABELS[v]);
 
-// The sample pools only hold 5 questions each, so a bigger quiz could never be tested.
-// Until the real generator exists, repeat the pool (renumbering "question 1" -> "question 6" ...) up to `count`.
-function sampleQuestions(pool, count) {
-    const out = [];
-    for (let n = 0; n < count; n++) {
-        const base = pool[n % pool.length];
-        out.push(n < pool.length ? base : Object.assign({}, base, {
-            q: base.q.replace(/\d+/, n + 1),
-            explain: base.explain.replace(/\d+/, n + 1)
-        }));
+async function loadQuizHistory() {
+    const list = $('quizHistory');
+    try {
+        const { results } = await apiCall('quiz_history');
+        list.replaceChildren();
+        if (!results.length) {
+            list.append(el('li', '', 'No completed quizzes yet.'));
+            return;
+        }
+        results.forEach(r => list.append(el('li', '', r.topic + ' · ' + r.correct_answers + '/' +
+            r.total_questions + ' correct · ' + r.points + ' points · ' + r.created_at)));
+    } catch (err) {
+        list.replaceChildren(el('li', '', err.message));
     }
-    return out;
+}
+
+function updateQuizCount() {
+    const slider = $('numQuestions');
+    slider.max = Math.max(1, Math.min(30, currentQuestions.length));
+    slider.disabled = !currentQuestions.length;
+    slider.dispatchEvent(new Event('input'));
 }
 
 $('customForm').addEventListener('submit', e => {
@@ -1271,10 +1331,20 @@ $('customForm').addEventListener('submit', e => {
         type: f.get('qtype'), // 'mcq' or 'text'
         order: f.get('order')
     };
-    // The sample pools are placeholders. When the real generator exists, send `settings`
-    // to it (count, difficulty, type) and use the questions it returns instead.
-    let qs = sampleQuestions(settings.type === 'text' ? SAMPLE_TEXT_QUESTIONS : SAMPLE_QUESTIONS, settings.count);
-    if (settings.order === 'shuffle') qs.sort(() => Math.random() - .5);
+    let qs = currentQuestions.slice();
+    if (settings.order === 'shuffle') {
+        for (let i = qs.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [qs[i], qs[j]] = [qs[j], qs[i]];
+        }
+    }
+    qs = qs.slice(0, settings.count);
+    if (settings.type === 'text') {
+        qs = qs.map(q => Object.assign({}, q, {
+            type: 'text',
+            answer: q.options[q.answer]
+        }));
+    }
     startQuiz(qs, {
         difficulty: settings.difficulty,
         type: settings.type
@@ -1324,28 +1394,13 @@ function ttsMessage(text, warn) {
 }
 
 function fillTts() {
-    if (!notesText) buildNotesSilently();
-    $('ttsText').textContent = notesText;
+    $('ttsText').textContent = speechText || notesText;
     if (!ttsBusy) $('ttsMsg').hidden = true;
-}
-
-function buildNotesSilently() {
-    notesText = SAMPLE_NOTES.map(s => s.h + '. ' + s.p).join('\n\n');
-    const body = $('notesBody');
-    if (!body.childElementCount) {
-        $('notesLead').textContent = 'Generated from your study materials.';
-        SAMPLE_NOTES.forEach(s => {
-            const d = el('div', 'note-sec');
-            d.appendChild(el('h3', '', s.h));
-            d.appendChild(el('p', '', s.p));
-            body.appendChild(d);
-        });
-    }
 }
 
 // asks api/tts.php for the Gemini voice (a WAV file). Throws an Error with a message the user can read.
 async function getGeminiAudio() {
-    const text = notesText;
+    const text = speechText || notesText;
     if (ttsBlob && ttsBlobText === text) return ttsBlob;
     const fd = new FormData();
     fd.append('csrf', window.STUDYHUB_CSRF);
@@ -1388,7 +1443,7 @@ function speakWithBrowser(reason) {
         return;
     }
     synth.cancel();
-    const u = new SpeechSynthesisUtterance(notesText);
+    const u = new SpeechSynthesisUtterance(speechText || notesText);
     u.rate = parseFloat($('ttsRate').value);
     synth.speak(u);
     ttsMessage('The Gemini voice is not available right now, so the browser voice is reading instead. (' + reason + ')', true);
@@ -1396,9 +1451,9 @@ function speakWithBrowser(reason) {
 
 $('ttsPlay').addEventListener('click', async () => {
     if (ttsBusy) return;
-    if (!notesText) fillTts();
+    if (!speechText && !notesText) fillTts();
     // paused in the middle: carry on from there
-    if (ttsAudio && ttsAudio.paused && ttsAudio.currentTime > 0 && !ttsAudio.ended && ttsBlobText === notesText) {
+    if (ttsAudio && ttsAudio.paused && ttsAudio.currentTime > 0 && !ttsAudio.ended && ttsBlobText === (speechText || notesText)) {
         ttsAudio.play();
         return;
     }
@@ -1408,7 +1463,7 @@ $('ttsPlay').addEventListener('click', async () => {
     }
     stopSpeech();
     const mine = ttsToken;
-    const cached = ttsBlob && ttsBlobText === notesText;
+    const cached = ttsBlob && ttsBlobText === (speechText || notesText);
     setTtsBusy('play', cached ? '' : 'Getting the Gemini voice ready. The first time can take up to a minute for long notes.');
     let blob;
     try {
@@ -1445,8 +1500,8 @@ $('ttsRate').addEventListener('change', () => {
 $('ttsDownload').addEventListener('click', async () => {
     if (ttsBusy) return;
     if (!notesText) fillTts();
-    if (!notesText) return;
-    setTtsBusy('download', ttsBlob && ttsBlobText === notesText ? '' : 'Creating your audio file. This can take up to a minute for long notes.');
+    if (!speechText && !notesText) return;
+    setTtsBusy('download', ttsBlob && ttsBlobText === (speechText || notesText) ? '' : 'Creating your audio file. This can take up to a minute for long notes.');
     try {
         const blob = await getGeminiAudio();
         const url = URL.createObjectURL(blob);

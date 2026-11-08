@@ -1,6 +1,7 @@
 <?php
 require 'db.php';
 require_login();
+$pdo = db();
 
 $uid = (int)$_SESSION['user_id'];
 $msg = '';
@@ -37,6 +38,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 try {
                     $pdo->prepare('UPDATE users SET username = ?, email = ? WHERE id = ?')
                         ->execute([$username, $email, $uid]);
+                    // keep the session in step, so the greeting on studyhub.php shows the new name straight away
+                    $_SESSION['name']  = $username;
+                    $_SESSION['email'] = $email;
                     $msg = 'Profile updated.';
                 } catch (PDOException $e) {
                     $err = ($e->getCode() === '23000')
@@ -68,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $_SESSION = [];
             session_destroy();
-            header('Location: login.php?deleted=1');
+            header('Location: index.php?deleted=1');
             exit;
         }
     }
@@ -77,6 +81,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $s = $pdo->prepare('SELECT username, email, created_at FROM users WHERE id = ?');
 $s->execute([$uid]);
 $user = $s->fetch();
+if (!$user) {
+    header('Location: logout.php');
+    exit;
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -100,7 +108,7 @@ $user = $s->fetch();
 </head>
 <body>
 <div class="wrap">
-  <p><a href="homepage.php">&larr; Homepage</a></p>
+  <p><a href="studyhub.php">&larr; Study Hub</a></p>
   <?php if ($msg): ?><div class="ok"><?= h($msg) ?></div><?php endif; ?>
   <?php if ($err): ?><div class="err"><?= h($err) ?></div><?php endif; ?>
 

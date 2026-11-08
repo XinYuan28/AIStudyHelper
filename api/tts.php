@@ -30,14 +30,16 @@ register_shutdown_function(function () {
 });
 ob_start();   // keeps stray output (warnings, notices) out of the audio file
 
-require __DIR__ . '/../auth.php';          // starts the session, gives is_logged_in() and csrf_ok()
-require_once __DIR__ . '/../config_ai.php'; // AI_API_KEY
+require_once __DIR__ . '/../auth.php';   // starts the session, gives is_logged_in() and csrf_ok()
+require_once __DIR__ . '/../ai.php';     // AI_API_KEY (via config_ai.php) and ai_ca_bundle()
 
 const TTS_MODEL     = 'gemini-3.8-flash-tts';
 const TTS_VOICE     = 'Kore';
 const TTS_CHUNK     = 3000;    // characters sent to Gemini per request (long notes are split)
-const TTS_MAX_CHARS = 24000;   // longer notes are refused so one request cannot run for ages
+const TTS_MAX_CHARS = 12000;   // longer notes are refused: 4 chunks x 45 s stays inside the 200 s time limit
+const TTS_TIMEOUT   = 45;      // seconds per Gemini call
 const TTS_RATE      = 24000;   // Gemini returns 24 kHz, mono, 16-bit audio
+const TTS_COOLDOWN  = 10;      // seconds a user must wait between audio requests
 
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
@@ -49,16 +51,27 @@ if (!is_logged_in()) {
 if (!csrf_ok()) {
     tts_fail(403, 'Your session expired. Please refresh the page and try again.');
 }
-session_write_close();   // do not block other pages while the audio is being made
-@set_time_limit(180);
 
-$text = trim((string) ($_POST['text'] ?? ''));
+// stops one user from firing audio requests back to back
+$now = time();
+if ($now - (int) ($_SESSION['tts_last'] ?? 0) < TTS_COOLDOWN) {
+    tts_fail(429, 'Please wait a few seconds before making another audio file.');
+}
+$text = trim(is_string($_POST['text'] ?? null) ? $_POST['text'] : '');
 if ($text === '') {
     tts_fail(400, 'There is no text to turn into audio.');
 }
 if (mb_strlen($text) > TTS_MAX_CHARS) {
     tts_fail(413, 'These notes are too long to turn into one audio file.');
 }
+
+if (AI_API_KEY === '') {
+    tts_fail(503, 'Gemini speech is not configured. Set GEMINI_API_KEY on the server.');
+}
+
+$_SESSION['tts_last'] = $now;
+session_write_close();
+set_time_limit(200);
 
 /* split long notes at paragraph / word boundaries */
 function tts_chunks(string $text): array
@@ -112,15 +125,19 @@ function tts_call(string $chunk, array $speechConfig): array
     $headers = ['Content-Type: application/json', 'x-goog-api-key: ' . AI_API_KEY];
 
     if (function_exists('curl_init')) {
-        $ch = curl_init($url);
-        curl_setopt_array($ch, [
+        $opts = [
             CURLOPT_POST           => true,
             CURLOPT_POSTFIELDS     => $body,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_CONNECTTIMEOUT => 10,
-            CURLOPT_TIMEOUT        => 120,
+            CURLOPT_TIMEOUT        => TTS_TIMEOUT,
             CURLOPT_HTTPHEADER     => $headers,
-        ]);
+        ];
+        if ($ca = ai_ca_bundle()) {
+            $opts[CURLOPT_CAINFO] = $ca;
+        }
+        $ch = curl_init($url);
+        curl_setopt_array($ch, $opts);
         $raw    = curl_exec($ch);
         $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $cerr   = curl_error($ch);
@@ -128,7 +145,7 @@ function tts_call(string $chunk, array $speechConfig): array
         if ($raw === false) {
             tts_fail(502, 'Could not reach the audio service. curl says: ' . ($cerr !== '' ? $cerr : 'no details'));
         }
-        return [$status, $raw === false ? null : json_decode($raw, true)];
+        return [$status, json_decode($raw, true)];
     }
 
     // no curl on this server: use PHP's built-in https streams instead (needs allow_url_fopen and the openssl extension)
@@ -136,14 +153,14 @@ function tts_call(string $chunk, array $speechConfig): array
         'method'        => 'POST',
         'header'        => implode("\r\n", $headers),
         'content'       => $body,
-        'timeout'       => 120,
+        'timeout'       => TTS_TIMEOUT,
         'ignore_errors' => true,   // still read the body when Google answers with an error code
     ]]);
     $raw = @file_get_contents($url, false, $ctx);
     if ($raw === false) {
         $why = error_get_last();
         tts_fail(500, 'Could not reach the audio service. PHP says: ' . ($why['message'] ?? 'no details')
-            . ' [curl: ' . (function_exists('curl_init') ? 'on' : 'off')
+            . ' [curl: off'
             . ', openssl: ' . (extension_loaded('openssl') ? 'on' : 'off')
             . ', allow_url_fopen: ' . (ini_get('allow_url_fopen') ? 'on' : 'off')
             . ', php.ini: ' . (php_ini_loaded_file() ?: 'none') . ']');
@@ -174,10 +191,11 @@ function tts_pcm(string $bin): string
     return substr($bin, 44);
 }
 
-/* two spellings of the single-voice setting; the first that Gemini accepts is kept */
+/* two spellings of the single-voice setting; the first that Gemini accepts is kept.
+   The documented spelling (prebuiltVoiceConfig) goes first so it normally works on the first call. */
 $shapes = [
-    ['voiceConfig' => ['voice' => TTS_VOICE]],
     ['voiceConfig' => ['prebuiltVoiceConfig' => ['voiceName' => TTS_VOICE]]],
+    ['voiceConfig' => ['voice' => TTS_VOICE]],
 ];
 $shape = 0;
 $pcm   = '';

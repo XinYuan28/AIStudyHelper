@@ -7,19 +7,36 @@ class AiException extends RuntimeException {
     public int $attempts = 0;
 }
 
+// data/ is blocked from the web by data/.htaccess, so the log can not be opened in a browser
 function ai_log(string $msg): void {
-    @file_put_contents(__DIR__ . '/ai_debug.log', date('c') . "\n" . $msg . "\n\n", FILE_APPEND);
+    $dir = __DIR__ . '/data';
+    if (is_dir($dir)) {
+        @file_put_contents($dir . '/ai_debug.log', date('c') . "\n" . $msg . "\n\n", FILE_APPEND);
+    }
+}
+
+// Uses the bundled CA file when php.ini has none set (fixes "SSL certificate problem" on XAMPP).
+function ai_ca_bundle(): ?string {
+    if (ini_get('curl.cainfo') || ini_get('openssl.cafile')) return null;
+    $file = __DIR__ . '/php/cacert.pem.txt';
+    return is_file($file) ? $file : null;
 }
 
 function ai_http(string $url, string $body, int $timeout): array {
-    $ch = curl_init($url);
-    curl_setopt_array($ch, [
+    $opts = [
         CURLOPT_POST           => true,
         CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_CONNECTTIMEOUT => 10,
         CURLOPT_TIMEOUT        => $timeout,
         CURLOPT_HTTPHEADER     => ['Content-Type: application/json', 'x-goog-api-key: ' . AI_API_KEY],
         CURLOPT_POSTFIELDS     => $body,
-    ]);
+    ];
+    if ($ca = ai_ca_bundle()) {
+        $opts[CURLOPT_CAINFO] = $ca;
+    }
+
+    $ch = curl_init($url);
+    curl_setopt_array($ch, $opts);
     $raw  = curl_exec($ch);
     $err  = $raw === false ? curl_error($ch) : '';
     $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -87,7 +104,7 @@ function ai_run(array $parts, callable $validate, int $maxTokens, int $timeout =
                 $lastMsg = "The AI blocked this request ($block).";
                 $retry   = false;
             } else {
-                $lastMsg = "The AI returned an unexpected response (finish reason: $finish). Details saved in ai_debug.log.";
+                $lastMsg = "The AI returned an unexpected response (finish reason: $finish). Details saved in data/ai_debug.log.";
             }
         }
 
@@ -122,10 +139,10 @@ You are a study assistant. Read the attached study material and return ONLY JSON
   "subject": "one to three word subject name, e.g. Biology",
   "notes": "clear, well-organised study notes in plain text, with short headings",
   "questions": [
-    {"question": "...", "options": ["A","B","C","D"], "answer": 0, "topic": "short topic name"}
+    {"question": "...", "options": ["A","B","C","D"], "answer": 0, "topic": "short topic name", "explain": "why the correct answer is right for this specific question"}
   ]
 }
-Rules: exactly 8 multiple-choice questions, exactly 4 options each, "answer" is the index (0-3) of the correct option as a number, "topic" names the concept being tested.
+Rules: up to 30 distinct multiple-choice questions (aim for 30 when supported by the material, minimum 4), exactly 4 options each, "answer" is the index (0-3) of the correct option as a number, "topic" names the concept being tested.
 TXT;
     $prompt .= $folderHint;
 
@@ -141,21 +158,27 @@ TXT;
         if (empty($d['notes']) || empty($d['questions']) || !is_array($d['questions'])) return null;
 
         $clean = [];
+        $seen = [];
         foreach ($d['questions'] as $q) {
             if (!is_array($q) || !isset($q['question'], $q['options'], $q['answer'])) continue;
             if (!is_array($q['options']) || count($q['options']) !== 4) continue;
-            if (!is_numeric($q['answer'])) continue;
+            if (!is_string($q['question']) || !is_numeric($q['answer'])) continue;
+            $question = trim($q['question']);
+            $key = mb_strtolower($question);
+            if ($key === '' || isset($seen[$key])) continue;
             $ans = (int)$q['answer'];
             if ($ans < 0 || $ans > 3) continue;
+            $seen[$key] = true;
             $clean[] = [
-                'question' => (string)$q['question'],
+                'question' => $question,
+                'explain'  => is_string($q['explain'] ?? null) ? trim($q['explain']) : '',
                 'options'  => array_map('strval', array_values($q['options'])),
                 'answer'   => $ans,
                 'topic'    => (string)($q['topic'] ?? 'General'),
             ];
         }
         if (count($clean) < 4) return null;
-        $clean = array_slice($clean, 0, 8);
+        $clean = array_slice($clean, 0, 30);
 
         $subject = mb_substr(trim(strip_tags((string)($d['subject'] ?? ''))), 0, 100);
 

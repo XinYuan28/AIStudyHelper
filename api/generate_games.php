@@ -1,27 +1,34 @@
 <?php
-require_once '../config_ai.php';
-require_once '../db.php';
-require_once '../ai.php';
+require_once __DIR__ . '/../config_ai.php';
+require_once __DIR__ . '/../auth.php';
+require_once __DIR__ . '/../ai.php';
 set_time_limit(150);
-$go = isset($_REQUEST['go']);
+
+// POST only (see play_menu.php): starting a game costs an AI call
+$go = isset($_POST['go']);
 
 function fail($code, $msg) {
     global $go;
     http_response_code($code);
-    if ($go) { echo htmlspecialchars($msg) . ' <a href="../homepage.php">Back</a>'; }
+    if ($go) { echo htmlspecialchars($msg) . ' <a href="../play_menu.php">Back</a>'; }
     else { header('Content-Type: application/json'); echo json_encode(["error" => $msg]); }
     exit;
 }
 
+if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') fail(405, 'Start a game from the Play a game page.');
 if (!isset($_SESSION[SESSION_USER_KEY])) fail(401, 'Not logged in');
+if (!csrf_ok()) {
+    fail(403, 'Your session expired. Go back, refresh the page and try again.');
+}
 $uid = (int)$_SESSION[SESSION_USER_KEY];
 
-$template = ($_REQUEST['t'] ?? 'A') === 'B' ? 'B' : 'A';
+$template = ($_POST['t'] ?? 'A') === 'B' ? 'B' : 'A';
 
-$notes = trim($_POST['notes'] ?? '');
-if ($notes === '' && isset($_REQUEST['note_id'])) {
-    $stmt = $pdo->prepare("SELECT content FROM notes WHERE id = ? AND user_id = ?");
-    $stmt->execute([(int)$_REQUEST['note_id'], $uid]);
+$notes = trim(is_string($_POST['notes'] ?? null) ? $_POST['notes'] : '');
+if ($notes === '' && isset($_POST['note_id'])) {
+    // deleted_at IS NULL: notes in the trash can no longer be turned into games
+    $stmt = db()->prepare("SELECT content FROM notes WHERE id = ? AND user_id = ? AND deleted_at IS NULL");
+    $stmt->execute([(int)$_POST['note_id'], $uid]);
     $row = $stmt->fetch();
     $notes = trim($row['content'] ?? '');
 }
@@ -43,9 +50,16 @@ function validateGame($d, $t) {
     if (!is_array($d) || ($d['template'] ?? '') !== $t) return false;
     if ($t === 'A') {
         if (empty($d['pairs']) || !is_array($d['pairs']) || count($d['pairs']) < 6) return false;
+        $terms = [];
+        $definitions = [];
         foreach ($d['pairs'] as $p) {
-            if (!is_array($p) || empty($p['term']) || empty($p['definition'])) return false;
-            if (!is_string($p['term']) || !is_string($p['definition'])) return false;
+            if (!is_string($p['term'] ?? null) || !is_string($p['definition'] ?? null)) return false;
+            $term = mb_strtolower(trim($p['term']));
+            $definition = mb_strtolower(trim($p['definition']));
+            if ($term === '' || $definition === '') return false;
+            if (isset($terms[$term]) || isset($definitions[$definition])) return false;
+            $terms[$term] = true;
+            $definitions[$definition] = true;
         }
     } else {
         if (empty($d['sentences']) || !is_array($d['sentences']) || count($d['sentences']) < 4) return false;
@@ -62,8 +76,8 @@ try {
         60
     );
 } catch (AiException $e) {
-    // the real reason goes to ai_debug.log, and is also shown on the page when you run it on your own computer
-    ai_log('Game generation failed (template ' . $template . ', note ' . (int)($_REQUEST['note_id'] ?? 0) . '): ' . $e->getMessage());
+    // the real reason goes to data/ai_debug.log, and is also shown on the page when you run it on your own computer
+    ai_log('Game generation failed (template ' . $template . ', note ' . (int)($_POST['note_id'] ?? 0) . '): ' . $e->getMessage());
     $local = in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1'], true);
     fail(422, 'Game generation failed, please try again.' . ($local ? ' (Reason: ' . $e->getMessage() . ')' : ''));
 }
