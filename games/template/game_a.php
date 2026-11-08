@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Outbreak Origins: Tile Match</title>
+    <title>Tile Match</title>
     <style>
         :root {
             --bg-color: #1a1a1a;
