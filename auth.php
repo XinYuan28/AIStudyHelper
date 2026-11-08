@@ -1,22 +1,24 @@
 <?php
-// Login helpers, now backed by the `users` table of the ai_study_note database.
-// The function names and what they return are the same as the old JSON-file demo,
-// so index.php and studyhub.php keep working. Accounts used to live in data/users.json;
-// that file is no longer read.
-if (session_status() !== PHP_SESSION_ACTIVE) {
-    session_start();
-}
+// Login helpers, backed by the `users` table of the ai_study_note database.
+// db.php starts the session (with safe cookie settings) and provides db(), h(),
+// csrf_token(), csrf_field(), csrf_check() and require_login().
 require_once __DIR__ . '/db.php';
-
-const SHOW_DEMO_HINT = true;
 
 const DEMO_EMAIL    = 'demo@aisnh.com';
 const DEMO_PASSWORD = 'demo1234';
 const DEMO_NAME     = 'Demo User';
-const SEED_DEMO_USER = true;   // true: the demo account above is created in `users` the first time it logs in. Set false to switch it off.
+// The demo account is only created when the site is opened on your own computer,
+// so it can never exist on a deployed server.
+define('SEED_DEMO_USER', in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1'], true));
 
-const LOGIN_MAX_FAILS  = 5;    // wrong passwords allowed ...
-const LOGIN_WINDOW_MIN = 15;   // ... within this many minutes, then login is paused for that email (table: login_attempts)
+const LOGIN_MAX_FAILS    = 5;    // wrong passwords allowed per email
+const LOGIN_MAX_FAILS_IP = 20;   // or per IP address
+const LOGIN_WINDOW_MIN   = 15;   // within this many minutes, then login is paused (table: login_attempts)
+
+function client_ip(): string
+{
+    return substr((string) ($_SERVER['REMOTE_ADDR'] ?? ''), 0, 45) ?: '0.0.0.0';
+}
 
 // users row -> the array the rest of the site expects
 function user_from_row(array $r): array
@@ -52,7 +54,7 @@ function find_user(string $email): ?array
 }
 
 // users.username is required (max 50 characters); the sign-up form has no username box,
-// so it is made from the part of the email before the @ (as before).
+// so it is made from the part of the email before the @.
 function create_user(string $email, string $password, ?string $name = null): array
 {
     $email = strtolower(trim($email));
@@ -79,34 +81,31 @@ function login_user(string $email, array $user): void
 
 function is_logged_in(): bool
 {
-    // needs user_id, so anyone still holding an old (pre-database) session is asked to log in again
     return !empty($_SESSION['user_id']);
-}
-
-function require_login(): void
-{
-    if (!is_logged_in()) {
-        header('Location: index.php');
-        exit;
-    }
 }
 
 /* LOGIN ATTEMPTS (table login_attempts: email, ip, attempted_at) */
 function login_blocked(string $email): bool
 {
-    $st = db()->prepare(
-        'SELECT COUNT(*) FROM login_attempts
-          WHERE email = ? AND attempted_at > (NOW() - INTERVAL ' . (int) LOGIN_WINDOW_MIN . ' MINUTE)'
-    );
+    $pdo    = db();
+    $window = '(NOW() - INTERVAL ' . (int) LOGIN_WINDOW_MIN . ' MINUTE)';
+
+    $st = $pdo->prepare("SELECT COUNT(*) FROM login_attempts WHERE email = ? AND attempted_at > $window");
     $st->execute([strtolower(trim($email))]);
-    return (int) $st->fetchColumn() >= LOGIN_MAX_FAILS;
+    if ((int) $st->fetchColumn() >= LOGIN_MAX_FAILS) {
+        return true;
+    }
+
+    $st = $pdo->prepare("SELECT COUNT(*) FROM login_attempts WHERE ip = ? AND attempted_at > $window");
+    $st->execute([client_ip()]);
+    return (int) $st->fetchColumn() >= LOGIN_MAX_FAILS_IP;
 }
 
 function record_failed_login(string $email): void
 {
     $pdo = db();
     $pdo->prepare('INSERT INTO login_attempts (email, ip) VALUES (?, ?)')
-        ->execute([strtolower(trim($email)), substr((string) ($_SERVER['REMOTE_ADDR'] ?? ''), 0, 45)]);
+        ->execute([strtolower(trim($email)), client_ip()]);
     $pdo->exec('DELETE FROM login_attempts WHERE attempted_at < (NOW() - INTERVAL 1 DAY)'); // keep the table small
 }
 
@@ -115,20 +114,8 @@ function clear_login_attempts(string $email): void
     db()->prepare('DELETE FROM login_attempts WHERE email = ?')->execute([strtolower(trim($email))]);
 }
 
-function csrf_token(): string
-{
-    if (empty($_SESSION['csrf'])) {
-        $_SESSION['csrf'] = bin2hex(random_bytes(16));
-    }
-    return $_SESSION['csrf'];
-}
-
 function csrf_ok(): bool
 {
-    return isset($_POST['csrf'], $_SESSION['csrf']) && hash_equals($_SESSION['csrf'], $_POST['csrf']);
-}
-
-function h(string $s): string
-{
-    return htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
+    return isset($_SESSION['csrf']) && is_string($_POST['csrf'] ?? null)
+        && hash_equals($_SESSION['csrf'], $_POST['csrf']);
 }

@@ -108,6 +108,17 @@ CREATE TABLE IF NOT EXISTS game_scores (
     CONSTRAINT fk_game_scores_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
-ALTER TABLE notes
-    ADD CONSTRAINT fk_notes_folder
-    FOREIGN KEY (folder_id) REFERENCES folders (id) ON DELETE SET NULL;
+SET @add_folder_constraint = IF(
+    EXISTS (
+        SELECT 1 FROM information_schema.TABLE_CONSTRAINTS
+        WHERE CONSTRAINT_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'notes'
+          AND CONSTRAINT_NAME = 'fk_notes_folder'
+          AND CONSTRAINT_TYPE = 'FOREIGN KEY'
+    ),
+    'DO 0',
+    'ALTER TABLE notes ADD CONSTRAINT fk_notes_folder FOREIGN KEY (folder_id) REFERENCES folders (id) ON DELETE SET NULL'
+);
+PREPARE folder_constraint FROM @add_folder_constraint;
+EXECUTE folder_constraint;
+DEALLOCATE PREPARE folder_constraint;

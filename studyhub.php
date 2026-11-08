@@ -69,8 +69,9 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
                 <h3 id="exportTitle">Export your notes</h3>
                 <p>Choose how you would like to save them.</p>
                 <div class="export-list">
-                    <button type="button" class="btn small" data-fmt="pdf">PDF document</button>
+                    <button type="button" class="btn small" data-fmt="pdf">Export to PDF</button>
                     <button type="button" class="btn small" data-fmt="pptx">Slides (PowerPoint)</button>
+                    <button type="button" class="btn ghost small" data-fmt="html">Web page (HTML)</button>
                     <button type="button" class="btn ghost small" data-fmt="txt">Plain text</button>
                 </div>
                 <p class="note-msg" id="exportMsg" hidden></p>
@@ -115,7 +116,7 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
                 <p class="upload-hint" id="uploadHint">Tip: you can add several files (PDF, Word, PowerPoint, text or audio), up to 100 MB in total, to make one set of notes.</p>
             </div>
 
-            <input type="file" id="fileInput" accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.mp3,.m4a,.wav" multiple hidden>
+            <input type="file" id="fileInput" accept=".pdf,.docx,.pptx,.xlsx,.odt,.rtf,.txt,.md,.csv,.mp3,.m4a,.wav" multiple hidden>
 
             <section class="notes-box" aria-label="Notes">
                 <div class="notes-head">
@@ -209,8 +210,8 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
                     <p class="note-msg" id="notesSaved" hidden></p>
                     <div class="actions">
                         <button type="button" class="btn ghost icon-only" id="notesToTts" title="Listen to these notes" aria-label="Listen to these notes"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 10v4h4l5 4V6L8 10H4z"/><path d="M16.5 9a4 4 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11"/></svg></button>
-                        <button type="button" class="btn ghost icon-only" id="notesToQuiz" title="Test myself" aria-label="Test myself"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="5" y="4" width="14" height="17" rx="2.5"/><path d="M9.5 4V3h5v1M9 13l2.2 2.2L15.5 11"/></svg></button>
-                        <button type="button" class="btn ghost icon-only" id="notesExport" title="Export notes (PDF, slides or text)" aria-label="Export notes"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14"/></svg></button>
+                        <button type="button" class="btn ghost icon-only" id="notesToQuiz" title="Start the quiz for these notes" aria-label="Start the quiz for these notes"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="5" y="4" width="14" height="17" rx="2.5"/><path d="M9.5 4V3h5v1M9 13l2.2 2.2L15.5 11"/></svg></button>
+                        <button type="button" class="btn ghost icon-only" id="notesExport" title="Export to PDF or choose another format" aria-label="Export notes"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14"/></svg></button>
                     </div>
                 </div>
 
@@ -219,6 +220,7 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
                     <h2 class="panel-title">Game Quiz</h2>
                     <p class="lead">Answer to earn points and build a streak.</p>
                     <div id="quizArea"></div>
+                    <details class="card"><summary>Recent quiz results</summary><ul id="quizHistory" aria-live="polite"></ul></details>
                 </div>
 
                 <!-- CUSTOM QUIZ -->
@@ -230,9 +232,9 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
                             <label for="numQuestions">
                                 Number of questions <span class="val" id="numValue">10</span>
                             </label>
-                            <input type="range" class="slider" id="numQuestions" name="count" min="5" max="30" step="5" value="10">
+                            <input type="range" class="slider" id="numQuestions" name="count" min="1" max="30" step="1" value="8">
                             <div class="range-ticks" aria-hidden="true">
-                                <span>5</span><span>10</span><span>15</span><span>20</span><span>25</span><span>30</span>
+                                <span>4</span><span>5</span><span>6</span><span>7</span><span>8</span>
                             </div>
                         </div>
                         <div class="field">
@@ -290,9 +292,9 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
         <script>
             // passed from PHP to studyhub.js: the logged-in user's name and the token api.php checks on every save
             window.STUDYHUB_USER = <?= json_encode($userName) ?>;
+            window.STUDYHUB_UPLOAD_BYTES = <?= upload_file_limit() ?>;
             window.STUDYHUB_CSRF = <?= json_encode(csrf_token()) ?>;
         </script>
-        <script src="sample-data.js"></script>
         <script src="studyhub.js"></script>
 
     </body>

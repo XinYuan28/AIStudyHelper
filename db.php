@@ -2,6 +2,14 @@
 /* Database connection and shared request helpers. */
 
 if (session_status() !== PHP_SESSION_ACTIVE) {
+    $https = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path'     => '/',
+        'secure'   => $https,   // only sent over HTTPS when the site is on HTTPS
+        'httponly' => true,     // JavaScript can not read the session cookie
+        'samesite' => 'Lax',    // not sent on cross-site POSTs
+    ]);
     session_start();
 }
 
@@ -24,7 +32,7 @@ if (!function_exists('db')) {
                 $options[PDO::MYSQL_ATTR_FOUND_ROWS] = true;
             }
             $pdo = new PDO(
-                'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4',
+                'mysql:host=' . DB_HOST . ';port=' . (getenv('AI_STUDY_DB_PORT') ?: '3306') . ';dbname=' . DB_NAME . ';charset=utf8mb4',
                 DB_USER,
                 DB_PASS,
                 $options
@@ -32,11 +40,6 @@ if (!function_exists('db')) {
         }
         return $pdo;
     }
-}
-
-// Legacy uploaded pages use $pdo directly; keep one lazy connection for both APIs.
-if (!isset($pdo)) {
-    $pdo = db();
 }
 
 if (!function_exists('h')) {
@@ -73,8 +76,8 @@ if (!function_exists('csrf_field')) {
 if (!function_exists('csrf_check')) {
     function csrf_check(): void
     {
-        if (!isset($_POST['csrf'], $_SESSION['csrf'])
-            || !hash_equals((string) $_SESSION['csrf'], (string) $_POST['csrf'])) {
+        if (!isset($_SESSION['csrf']) || !is_string($_POST['csrf'] ?? null)
+            || !hash_equals($_SESSION['csrf'], $_POST['csrf'])) {
             http_response_code(400);
             exit('Invalid request.');
         }
@@ -99,7 +102,7 @@ if (!function_exists('normalize_email')) {
 }
 
 /* The id (users.id) of whoever is logged in.
-   notes.user_id and quiz_results.user_id need this number, but the session only has to store ONE of
+   notes.user_id and quiz_results.user_id need this number, but the session only has to store one of
    user_id / uid / id, or the email. Once auth.php is connected to the users table, keep just the
    branch that matches what login_user() saves. */
 if (!function_exists('current_user_id')) {
@@ -120,4 +123,19 @@ if (!function_exists('current_user_id')) {
         }
         return 0;
     }
+}
+function php_size_bytes(string $value): int
+{
+    return match (strtolower(substr($value, -1))) {
+        'g' => (int) $value * 1024 ** 3,
+        'm' => (int) $value * 1024 ** 2,
+        'k' => (int) $value * 1024,
+        default => (int) $value,
+    };
+}
+
+function upload_file_limit(): int
+{
+    $configured = php_size_bytes((string) ini_get('upload_max_filesize'));
+    return $configured > 0 ? min($configured, 100 * 1024 ** 2) : 100 * 1024 ** 2;
 }
