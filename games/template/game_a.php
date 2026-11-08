@@ -471,7 +471,7 @@
         <!-- 4. END GAME MODAL -->
         <div id="game-over-modal" class="overlay">
             <div class="overlay-content">
-                <h2 style="color: var(--danger); font-size: 3rem; margin-bottom: 10px;">OUTBREAK!</h2>
+                <h2 style="color: var(--danger); font-size: 3rem; margin-bottom: 10px;">GAMEOVER!</h2>
                 <p style="font-size: 1.3rem; margin-bottom: 10px;">You ran out of lives.</p>
                 <p style="margin: 15px 0; font-size: 1.2rem;">You survived until <strong>Level <span id="final-level">1</span></strong></p>
                 
