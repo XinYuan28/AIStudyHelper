@@ -380,6 +380,23 @@ footer {
     font-weight: 600;
     cursor: pointer;
 }
+
+.back-to-play-menu {
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    z-index: 10;
+    padding: 8px 12px;
+    background: #fff;
+    color: #222;
+    border-radius: 8px;
+    text-decoration: none;
+}
+
+.back-to-play-menu:hover,
+.back-to-play-menu:focus-visible {
+    text-decoration: underline;
+}
 </style>
 </head>
 <body>
@@ -446,10 +463,7 @@ footer {
 
 <!-- start overlay -->
 <div id="startOverlay" class="overlay">
-    <a href="../play_menu.php"
-   style="position: fixed; top: 16px; left: 16px; z-index: 10; padding: 8px 12px; background: #fff; color: #222; border-radius: 8px; text-decoration: none;">
-    ← Back to Play Menu
-</a>
+   <a class="back-to-play-menu" href="../play_menu.php">← Back to Play Menu</a>
   <div class="start-card">
     <h2>⌨️ KeyForge</h2>
     <div class="instructions">
