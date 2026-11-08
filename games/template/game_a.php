@@ -389,6 +389,23 @@
             text-align: center;
             min-width: 350px;
         }
+
+        .back-to-play-menu {
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    z-index: 10;
+    padding: 8px 12px;
+    background: #fff;
+    color: #222;
+    border-radius: 8px;
+    text-decoration: none;
+}
+
+.back-to-play-menu:hover,
+.back-to-play-menu:focus-visible {
+    text-decoration: underline;
+}
     </style>
 </head>
 <body>
@@ -397,7 +414,8 @@
         
         <!-- 1. START PAGE / MAIN MENU -->
         <div id="start-page" class="view active">
-            <h1>Outbreak Origins</h1>
+            <a class="back-to-play-menu" href="../play_menu.php">← Back to Play Menu</a>
+            <h1>Tile Match</h1>
             
             <p style="font-size: 1.1rem; max-width: 80%; margin-top: 10px; line-height: 1.5;">
                 Match each <strong>Term</strong> to its <strong>Definition</strong>.<br>
