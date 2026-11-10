@@ -1530,3 +1530,25 @@ body.home-active {
     }
 
 }
+
+.notes-visual {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+    gap: 1rem;
+    list-style: none;
+    padding: 0;
+    counter-reset: concept;
+}
+.notes-visual[hidden] { display: none; }
+.visual-card {
+    counter-increment: concept;
+    border: 1px solid currentColor;
+    border-top: 5px solid #539b86;
+    border-radius: 12px;
+    padding: 1rem;
+    overflow-wrap: anywhere;
+}
+.visual-card:nth-child(3n + 2) { border-top-color: #a879bf; }
+.visual-card:nth-child(3n + 3) { border-top-color: #ce9256; }
+.visual-card::before { content: "Concept " counter(concept); font-weight: 600; }
+.visual-card p { margin-bottom: 0; }

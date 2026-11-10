@@ -206,7 +206,9 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
                 <div class="panel" id="panel-notes" hidden>
                     <h2 class="panel-title">Notes</h2>
                     <p class="lead" id="notesLead"></p>
+                    <button type="button" class="btn ghost small" id="notesVisualToggle" aria-pressed="false" aria-controls="notesVisual" hidden>Infographic view</button>
                     <div class="card" id="notesBody"></div>
+                    <ol id="notesVisual" class="notes-visual" hidden></ol>
                     <p class="note-msg" id="notesSaved" hidden></p>
                     <div class="actions">
                         <button type="button" class="btn ghost icon-only" id="notesToTts" title="Listen to these notes" aria-label="Listen to these notes"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 10v4h4l5 4V6L8 10H4z"/><path d="M16.5 9a4 4 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11"/></svg></button>

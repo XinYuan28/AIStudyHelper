@@ -554,6 +554,9 @@ function openLesson(id, fresh) {
         currentQuestions = [];
     }
     $('notesBody').textContent = '';
+    $('notesVisual').replaceChildren();
+    $('notesVisualToggle').hidden = true;
+    setVisualView(false);
     $('notesLead').textContent = '';
     $('notesSaved').hidden = true;
     $('startTitle').textContent = current.title;
@@ -988,6 +991,10 @@ function serializeNotes(sections) {
 function renderNotes(sections, lead, tag) {
     const body = $('notesBody');
     body.textContent = '';
+    const visual = $('notesVisual');
+    visual.replaceChildren();
+    $('notesVisualToggle').hidden = !sections.length;
+    setVisualView(false);
     $('notesLead').textContent = lead;
     if (tag) body.appendChild(el('span', 'tag', tag));
     sections.forEach(s => {
@@ -995,9 +1002,22 @@ function renderNotes(sections, lead, tag) {
         d.appendChild(el('h3', '', s.h));
         if (s.p) d.appendChild(el('p', '', s.p));
         body.appendChild(d);
+        const card = el('li', 'visual-card');
+        card.append(el('h3', '', s.h));
+        const summary = s.p.trim().split(/(?<=[.!?])\s+|\n/).filter(Boolean).slice(0, 2).join(' ');
+        if (summary) card.append(el('p', '', summary.length > 220 ? summary.slice(0, 217) + '…' : summary));
+        visual.append(card);
     });
     speechText = sections.map(s => s.p ? s.h + '. ' + s.p.replace(/^\s*[-•*]\s*/gm, '') : s.h).join('\n\n');
 }
+
+function setVisualView(enabled) {
+    $('notesVisual').hidden = !enabled;
+    $('notesBody').hidden = enabled;
+    $('notesVisualToggle').setAttribute('aria-pressed', String(enabled));
+}
+
+$('notesVisualToggle').addEventListener('click', () => setVisualView($('notesVisual').hidden));
 
 function showSaveMsg(text, warn) {
     const m = $('notesSaved');
