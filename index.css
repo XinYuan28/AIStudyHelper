@@ -33,6 +33,19 @@
     --shadow: 0 6px 20px rgba(0, 0, 0, .4);
 }
 
+[data-theme="yellow"] {
+    --bg: #fff9db;
+    --surface: #fff1b8;
+    --tint: #ffe89a;
+    --card: #fffdf2;
+    --ink: #332600;
+    --muted: #695524;
+    --line: #d9bd68;
+    --primary: #f5c542;
+    --primary-dark: #e5af22;
+    --on-primary: #332600;
+}
+
 /* BASE */
 * {
     box-sizing: border-box;

@@ -71,6 +71,9 @@ $login    = $mode === 'login';
         <!-- CSS -->
         <link rel="stylesheet" href="index.css">
 
+        <!-- JS -->
+        <script src="index.js" defer></script>
+
         <!-- FAVICON -->
         <link rel="icon" type="image/png" href="Images/AISNH_Cat coloredlogo(S).png">
     </head>
@@ -94,7 +97,7 @@ $login    = $mode === 'login';
                     <a href="#signup" class="btn-outline" data-auth="login">Log in</a>
                     <a href="#signup" class="btn-fill" data-auth="signup">Get started</a>
                 <?php endif; ?>
-                <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">
+                <button class="theme-toggle" id="themeToggle" aria-label="Change color theme">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
                         stroke-linecap="round" stroke-linejoin="round">
                         <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
@@ -217,27 +220,27 @@ $login    = $mode === 'login';
             <h2 class="title pink">FAQs</h2>
             <div class="faq-list">
                 <details>
-                    <summary>Question 1 ...</summary>
+                    <summary>How do I delete my account?</summary>
                     <p>Answer</p>
                 </details>
                 <details>
-                    <summary>Question 2 ...</summary>
+                    <summary>Do you offer a premium or subscription plan for unlimited generations?</summary>
                     <p>Answer</p>
                 </details>
                 <details>
-                    <summary>Question 3 ...</summary>
+                    <summary>How can I update my personal information or email address?</summary>
                     <p>Answer</p>
                 </details>
                 <details>
-                    <summary>Question 4 ...</summary>
+                    <summary>What types of files can I upload to generate notes?</summary>
                     <p>Answer</p>
                 </details>
                 <details>
-                    <summary>Question 5 ...</summary>
+                    <summary>Can I edit the notes or flashcards after they are generated?</summary>
                     <p>Answer</p>
                 </details>
                 <details>
-                    <summary>Question 6 ...</summary>
+                    <summary>How do I share my generated study materials with my classmates?</summary>
                     <p>Answer</p>
                 </details>
             </div>
@@ -278,53 +281,5 @@ $login    = $mode === 'login';
                 <path d="M12 19V5M5 12l7-7 7 7" />
             </svg>
         </button>
-
-        <script>
-            // Password show/hide (works for both faces)
-            document.querySelectorAll('[data-toggle]').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const input = document.getElementById(btn.dataset.toggle);
-                    input.type = input.type === 'password' ? 'text' : 'password';
-                });
-            });
-
-            // Flip card: sign up <-> log in (only when logged out)
-            const flip = document.getElementById('signup');
-            const signupFace = document.getElementById('signupFace');
-            const loginFace = document.getElementById('loginFace');
-            function setAuth(mode) {
-                if (!signupFace) return;
-                const login = mode === 'login';
-                flip.classList.toggle('flipped', login);
-                signupFace.inert = login;
-                loginFace.inert = !login;
-            }
-            document.querySelectorAll('[data-auth]').forEach(el => {
-                el.addEventListener('click', e => {
-                    setAuth(el.dataset.auth);
-                    if (el.getAttribute('href') === '#') e.preventDefault();
-                });
-            });
-
-            // Dark mode
-            const root = document.documentElement;
-            if (localStorage.getItem('theme') === 'dark') root.setAttribute('data-theme', 'dark');
-            document.getElementById('themeToggle').addEventListener('click', () => {
-                const dark = root.getAttribute('data-theme') === 'dark';
-                dark ? root.removeAttribute('data-theme') : root.setAttribute('data-theme', 'dark');
-                localStorage.setItem('theme', dark ? 'light' : 'dark');
-            });
-
-            // Footer year
-            document.getElementById("year").textContent = new Date().getFullYear();
-
-            // Back to top button
-            const toTop = document.getElementById('toTop');
-            function updateToTop() { toTop.classList.toggle('show', window.scrollY > 400); }
-            window.addEventListener('scroll', updateToTop, { passive: true });
-            updateToTop();
-            toTop.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
-        </script>
     </body>
-
 </html>

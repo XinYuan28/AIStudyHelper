@@ -111,10 +111,16 @@ async function refreshList() {
 
 /* THEME & GREETING */
 const root = document.documentElement;
-$('themeToggle').addEventListener('click', () => {
-    const dark = root.getAttribute('data-theme') === 'dark';
-    dark ? root.removeAttribute('data-theme') : root.setAttribute('data-theme', 'dark');
-    localStorage.setItem('theme', dark ? 'light' : 'dark');
+document.getElementById("themeToggle").addEventListener('click', () => {
+    const themes = ['light', 'dark', 'yellow'];
+    const current = root.dataset.theme || 'light';
+    const next = themes[(themes.indexOf(current) + 1) % themes.length];
+    if (next === 'light') {
+        delete root.dataset.theme;
+    } else {
+        root.dataset.theme = next;
+    }
+    localStorage.setItem('theme', next);
 });
 
 (function greet() {
