@@ -101,7 +101,32 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
                     </svg>
                 </button>
                 <a href="logout.php" class="logout" id="logoutLink">Log out</a>
-                <div class="avatar" title="<?= htmlspecialchars($userName) ?>"><?= htmlspecialchars($initial) ?></div>
+                <div class="user-wrap">
+                    <button type="button" class="avatar" id="userMenuToggle" aria-label="Account menu" aria-haspopup="menu" aria-expanded="false" aria-controls="userMenu" title="<?= htmlspecialchars($userName) ?>"><?= htmlspecialchars($initial) ?></button>
+                    <div class="user-menu" id="userMenu" role="menu" hidden>
+                        <div class="user-menu-head"><small>Signed in as</small><b><?= htmlspecialchars($userName) ?></b></div>
+                        <a href="profile.php" class="user-menu-item" role="menuitem">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5" /></svg>
+                            Profile
+                        </a>
+                        <a href="security.php" class="user-menu-item" role="menuitem">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 5 6v5.5c0 4.4 3 8 7 9.5 4-1.5 7-5.1 7-9.5V6l-7-3z" /><path d="M9 12l2.2 2.2L15 10.5" /></svg>
+                            Security
+                        </a>
+                        <a href="privacy.php" class="user-menu-item" role="menuitem">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2.5" /><path d="M9 8h6M9 12h6M9 16h3" /></svg>
+                            Privacy policy
+                        </a>
+                        <a href="contact.php" class="user-menu-item" role="menuitem">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3" /><path d="M4 7.5l8 5.5 8-5.5" /></svg>
+                            Contact us
+                        </a>
+                        <a href="faq.php" class="user-menu-item" role="menuitem">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M9.6 9.5a2.5 2.5 0 1 1 3.6 2.2c-.8.4-1.2.9-1.2 1.8M12 17h.01" /></svg>
+                            FAQs
+                        </a>
+                    </div>
+                </div>
             </div>
         </header>
 
@@ -148,7 +173,7 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
                         </svg>
                     </span>Notes
                 </button>
-                <a href="play_menu.php" class="side-item">
+                <a href="play_menu.php" class="side-item" id="sideGame">
                     <span class="side-icon">
                         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
                             <rect x="2.5" y="7" width="19" height="11" rx="5" />
@@ -237,10 +262,11 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
                             <label for="numQuestions">
                                 Number of questions <span class="val" id="numValue">10</span>
                             </label>
-                            <input type="range" class="slider" id="numQuestions" name="count" min="1" max="30" step="1" value="8">
+                            <input type="range" class="slider" id="numQuestions" name="count" min="5" max="30" step="1" value="10">
                             <div class="range-ticks" aria-hidden="true">
-                                <span>4</span><span>5</span><span>6</span><span>7</span><span>8</span>
+                                <span>5</span><span>10</span><span>15</span><span>20</span><span>25</span><span>30</span>
                             </div>
+                            <p class="note-msg" id="customMsg" hidden></p>
                         </div>
                         <div class="field">
                             <label for="difficulty">

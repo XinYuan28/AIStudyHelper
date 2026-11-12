@@ -80,16 +80,46 @@ let current = null;
 let notesText = '';
 let speechText = '';
 let currentQuestions = [];
+let pendingPanel = ''; // set from ?panel= in the address, e.g. coming back from the Game Quiz page
 
+// turns whatever the server sends into {q, options[], answer (index), topic, explain, type}
+// tolerant on purpose: options may be a JSON string or option_a..option_d columns, and the answer may be an index, a letter (A-D) or the answer text
 function normaliseQuestions(questions) {
-    return (questions || []).map(q => ({
-        q: q.q || q.question || '',
-        options: Array.isArray(q.options) ? q.options : [],
-        answer: Number(q.answer),
-        topic: q.topic || 'General',
-        explain: q.explain || '',
-        type: q.type || 'mcq'
-    })).filter(q => q.q && q.options.length === 4 && Number.isInteger(q.answer) && q.answer >= 0 && q.answer < q.options.length);
+    const raw = Array.isArray(questions) ? questions : [];
+    const out = raw.map(q => {
+        if (!q) return null;
+        let options = q.options;
+        if (typeof options === 'string') {
+            try {
+                options = JSON.parse(options);
+            } catch (e) {
+                options = null;
+            }
+        }
+        if (!Array.isArray(options)) {
+            options = ['a', 'b', 'c', 'd'].map(k => q['option_' + k] !== undefined ? q['option_' + k] : q['option' + k.toUpperCase()])
+                .filter(o => o !== undefined && o !== null && o !== '');
+        }
+        options = options.map(String);
+        let answer = q.answer !== undefined ? q.answer : (q.correct_answer !== undefined ? q.correct_answer : q.correct);
+        if (typeof answer === 'string') {
+            const t = answer.trim();
+            if (/^[A-D]$/i.test(t)) answer = t.toUpperCase().charCodeAt(0) - 65;
+            else if (/^\d+$/.test(t)) answer = Number(t);
+            else answer = options.indexOf(t);
+        }
+        return {
+            q: q.q || q.question || '',
+            options: options,
+            answer: Number(answer),
+            topic: q.topic || 'General',
+            explain: q.explain || q.explanation || '',
+            type: q.type || 'mcq'
+        };
+    }).filter(q => q && q.q && q.options.length >= 2 && Number.isInteger(q.answer) && q.answer >= 0 && q.answer < q.options.length);
+    if (raw.length && !out.length) console.warn('Study Hub: the server sent ' + raw.length + ' questions but none could be used. The first one was:', raw[0]);
+    else if (!raw.length) console.warn('Study Hub: the server sent no quiz questions for this note.');
+    return out;
 }
 
 async function refreshList() {
@@ -121,6 +151,25 @@ document.getElementById("themeToggle").addEventListener('click', () => {
         root.dataset.theme = next;
     }
     localStorage.setItem('theme', next);
+});
+
+/* USER MENU: the avatar in the top bar opens Profile / Security / Privacy policy / Contact us / FAQs */
+const userMenuToggle = $('userMenuToggle');
+const userMenuBox = $('userMenu');
+
+function setUserMenu(open) {
+    userMenuBox.hidden = !open;
+    userMenuToggle.setAttribute('aria-expanded', String(open));
+}
+userMenuToggle.addEventListener('click', () => setUserMenu(userMenuBox.hidden));
+document.addEventListener('click', e => {
+    if (!e.target.closest('.user-wrap')) setUserMenu(false);
+});
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !userMenuBox.hidden) {
+        setUserMenu(false);
+        userMenuToggle.focus();
+    }
 });
 
 (function greet() {
@@ -533,6 +582,7 @@ function setNoteUrl(id) {
         const u = new URL(location.href);
         if (id) u.searchParams.set('note', id);
         else u.searchParams.delete('note');
+        u.searchParams.delete('panel');
         history.replaceState(null, '', u);
     } catch (e) {}
 }
@@ -554,6 +604,7 @@ function openLesson(id, fresh) {
     current = lessons.find(l => l.id === id);
     if (!current) return;
     setNoteUrl(current.id);
+    $('sideGame').href = 'play_menu.php?note=' + encodeURIComponent(current.id); // so the Game Quiz page can bring you back to this note
     speechText = '';
     if (!fresh) {
         notesText = '';
@@ -586,9 +637,13 @@ function openLesson(id, fresh) {
             currentQuestions = normaliseQuestions(r.questions);
             if (!$('panel-custom').hidden) updateQuizCount();
             if (!notesText) notesText = r.content || '';
+            const want = pendingPanel; // 'custom' or 'tts' when we came back from the Game Quiz page
+            pendingPanel = '';
             if (stillHere && r.content) {
                 renderNotes(parseNotes(r.content), r.mode === 'personalised' ? 'Focus notes made from your quiz mistakes.' : 'Generated from your study materials.', '');
-                showPanel('notes');
+                showPanel(want === 'custom' || want === 'tts' ? want : 'notes');
+            } else if (stillHere && (want === 'custom' || want === 'tts')) {
+                showPanel(want);
             }
         }).catch(err => {
             if (current && current.id === openedId) {
@@ -1080,8 +1135,14 @@ function startQuiz(questions, meta) {
         type: 'mcq'
     }, meta);
     if (!questions || !questions.length) {
-        setHint('This quiz has no generated questions yet. Upload study material to create one.', true);
-        showPanel('start');
+        // stay where the person is and say why, instead of dropping them back on the start screen
+        const msg = 'No quiz questions were found for this note yet, so a quiz cannot start.';
+        if (!$('panel-custom').hidden) {
+            updateQuizCount();
+        } else {
+            $('startFiles').textContent = msg;
+            showPanel('start');
+        }
         return;
     }
     const area = $('quizArea');
@@ -1341,11 +1402,22 @@ async function loadQuizHistory() {
     }
 }
 
+// the slider always runs 5 to 30; a quiz uses as many questions as the note actually has (up to the number chosen)
 function updateQuizCount() {
-    const slider = $('numQuestions');
-    slider.max = Math.max(1, Math.min(30, currentQuestions.length));
-    slider.disabled = !currentQuestions.length;
-    slider.dispatchEvent(new Event('input'));
+    $('numQuestions').dispatchEvent(new Event('input'));
+    const n = currentQuestions.length;
+    const m = $('customMsg');
+    if (!n) {
+        m.textContent = 'No quiz questions were found for this note yet, so a quiz cannot start.';
+        m.classList.add('warn');
+    } else if (n < 30) {
+        m.textContent = 'This note has ' + n + ' questions ready, so a quiz will use up to ' + n + '.';
+        m.classList.remove('warn');
+    } else {
+        m.hidden = true;
+        return;
+    }
+    m.hidden = false;
 }
 
 $('customForm').addEventListener('submit', e => {
@@ -1357,6 +1429,10 @@ $('customForm').addEventListener('submit', e => {
         type: f.get('qtype'), // 'mcq' or 'text'
         order: f.get('order')
     };
+    if (!currentQuestions.length) {
+        updateQuizCount();
+        return;
+    }
     let qs = currentQuestions.slice();
     if (settings.order === 'shuffle') {
         for (let i = qs.length - 1; i > 0; i--) {
@@ -1562,6 +1638,8 @@ if (deepNote) {
     refreshList().then(() => {
         const l = lessons.find(x => x.id === deepNote);
         if (l) {
+            const want = new URLSearchParams(location.search).get('panel');
+            pendingPanel = (want === 'custom' || want === 'tts') ? want : '';
             openLesson(l.id);
         } else {
             setNoteUrl(0);

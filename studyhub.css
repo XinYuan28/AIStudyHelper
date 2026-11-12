@@ -188,6 +188,73 @@ h4 {
     font-weight: 700;
 }
 
+/* USER MENU (avatar dropdown in the top bar) */
+.user-wrap {
+    position: relative;
+}
+
+button.avatar {
+    padding: 0;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background .15s, color .15s;
+}
+
+button.avatar:hover,
+button.avatar[aria-expanded="true"] {
+    background: var(--primary);
+    color: var(--on-primary);
+}
+
+.user-menu {
+    position: absolute;
+    z-index: 30;
+    top: calc(100% + 10px);
+    right: 0;
+    width: 232px;
+    padding: .35rem;
+    background: var(--card);
+    border: 1.5px solid var(--line);
+    border-radius: 14px;
+    box-shadow: 0 12px 28px rgba(25, 15, 20, .14);
+    animation: fade .15s ease;
+}
+
+.user-menu-head {
+    padding: .55rem .75rem .6rem;
+    margin-bottom: .3rem;
+    border-bottom: 1px solid var(--line);
+    font-family: var(--font-display);
+    overflow-wrap: anywhere;
+}
+
+.user-menu-head small {
+    display: block;
+    color: var(--muted);
+    font-size: .76rem;
+    font-weight: 500;
+}
+
+.user-menu-item {
+    display: flex;
+    align-items: center;
+    gap: .7rem;
+    padding: .65rem .75rem;
+    border-radius: 9px;
+    color: var(--ink);
+    font-size: .95rem;
+}
+
+.user-menu-item svg {
+    flex: none;
+}
+
+.user-menu-item:hover,
+.user-menu-item:focus-visible {
+    background: var(--tint);
+    color: var(--primary);
+}
+
 .logout {
     font-size: .9rem;
     font-weight: 600;
@@ -1253,6 +1320,10 @@ body.home-active {
     font-size: .88rem;
 }
 
+.note-msg.warn {
+    color: var(--bad);
+}
+
 /* QUIZ RESULT: weak topics + weak parts */
 .weak-topics {
     margin-top: 1.6rem;
@@ -1404,14 +1475,17 @@ body.home-active {
         transition: none !important;
     }
 }
+
 /* CAT SIZE (home page) - to resize cat */
 #viewHome .home-cat {
     width: min(100%, 220px) !important;
 }
+
 /* CAT SIZE (lesson start page) - to resize cat */
 .start .home-cat {
     width: min(100%, 200px) !important;
 }
+
 /* stops white box flashing at the background of the cat when fades in*/
 #viewHome,
 #viewLesson {
@@ -1428,6 +1502,7 @@ body.home-active {
 .export-list .btn {
     width: 100%;
 }
+
 /* ICON-ONLY BUTTONS (notes page, text-to-speech, saved-note rows). The name is in title + aria-label. */
 .btn.icon-only {
     flex: none;
@@ -1552,7 +1627,11 @@ body.home-active {
     padding: 0;
     counter-reset: concept;
 }
-.notes-visual[hidden] { display: none; }
+
+.notes-visual[hidden] {
+    display: none;
+}
+
 .visual-card {
     counter-increment: concept;
     border: 1px solid currentColor;
@@ -1561,7 +1640,20 @@ body.home-active {
     padding: 1rem;
     overflow-wrap: anywhere;
 }
-.visual-card:nth-child(3n + 2) { border-top-color: #a879bf; }
-.visual-card:nth-child(3n + 3) { border-top-color: #ce9256; }
-.visual-card::before { content: "Concept " counter(concept); font-weight: 600; }
-.visual-card p { margin-bottom: 0; }
+
+.visual-card:nth-child(3n + 2) {
+    border-top-color: #a879bf;
+}
+
+.visual-card:nth-child(3n + 3) {
+    border-top-color: #ce9256;
+}
+
+.visual-card::before {
+    content: "Concept " counter(concept);
+    font-weight: 600;
+}
+
+.visual-card p {
+    margin-bottom: 0;
+}
