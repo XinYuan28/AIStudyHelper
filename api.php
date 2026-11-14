@@ -34,7 +34,7 @@ function fail(int $code, string $message): void
 // real errors go to the PHP error log; the browser only gets a friendly message
 set_exception_handler(function (Throwable $e) {
     error_log('[api.php] ' . $e->getMessage());
-    fail(500, 'Something went wrong on the server. Please try again.');
+    fail(500, 'DEBUG: ' . get_class($e) . ': ' . $e->getMessage() . ' @ ' . basename($e->getFile()) . ':' . $e->getLine());
 });
 
 if (!is_logged_in()) {

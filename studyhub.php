@@ -32,7 +32,7 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
         <!-- DELETE CONFIRM -->
         <div class="modal" id="confirmModal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" hidden>
             <div class="modal-box">
-                <h3 id="confirmTitle">Delete this note?</h3>
+                <h3 id="confirmTitle">Delete this note?</h3><!-- the heading text is set by studyhub.js -->
                 <p id="confirmText"></p>
                 <div class="actions">
                     <button type="button" class="btn ghost small" id="confirmCancel">Cancel</button>
@@ -81,6 +81,22 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
                 <div class="actions">
                     <button type="button" class="btn ghost small" id="exportCancel">Cancel</button>
                 </div>
+            </div>
+        </div>
+
+        <!-- GENERATING NOTE (shown while the files are uploaded and the note is made) -->
+        <div class="modal" id="generatingModal" role="alertdialog" aria-modal="true" aria-labelledby="generatingTitle" aria-describedby="generatingText" hidden>
+            <div class="modal-box generating-box" tabindex="-1">
+                <div class="gen-ico" aria-hidden="true">
+                    <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+                        <rect x="4" y="3" width="16" height="18" rx="3" />
+                        <path d="M8 8h8M8 12h8M8 16h5" />
+                    </svg>
+                </div>
+                <h3 id="generatingTitle">Your note is generating…</h3>
+                <p id="generatingText">This can take a moment for long files.</p>
+                <p class="gen-name" id="generatingName"></p>
+                <div class="gen-dots" aria-hidden="true"><i></i><i></i><i></i></div>
             </div>
         </div>
 
@@ -155,6 +171,11 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
                         </svg>
                         Upload
                     </button>
+                    <div class="delete-bar" id="deleteBar" hidden>
+                        <button type="button" class="btn ghost small" id="deleteSelectAll">Select all</button>
+                        <button type="button" class="btn ghost small" id="deleteCancel">Cancel</button>
+                        <button type="button" class="btn danger small" id="deleteSelected" disabled>Delete (0)</button>
+                    </div>
                 </div>
                 <div class="note-list" id="noteList"></div>
             </section>

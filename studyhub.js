@@ -81,6 +81,8 @@ let notesText = '';
 let speechText = '';
 let currentQuestions = [];
 let pendingPanel = ''; // set from ?panel= in the address, e.g. coming back from the Game Quiz page
+let deleteMode = false; // true after "Delete" is chosen in a note's menu: checkboxes appear on every note
+const selectedIds = new Set(); // ids of the notes ticked for deletion
 
 // turns whatever the server sends into {q, options[], answer (index), topic, explain, type}
 // tolerant on purpose: options may be a JSON string or option_a..option_d columns, and the answer may be an index, a letter (A-D) or the answer text
@@ -141,17 +143,35 @@ async function refreshList() {
 
 /* THEME & GREETING */
 const root = document.documentElement;
-document.getElementById("themeToggle").addEventListener('click', () => {
-    const themes = ['light', 'dark', 'yellow'];
-    const current = root.dataset.theme || 'light';
-    const next = themes[(themes.indexOf(current) + 1) % themes.length];
+const themeBtn = document.getElementById("themeToggle");
+const THEMES = ['light', 'dark', 'yellow'];
+const svgOpen = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">';
+// the button shows the theme you will switch TO: moon = dark, eye = eye-saver (yellow), sun = light
+const THEME_ICONS = {
+    light: svgOpen + '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></svg>',
+    dark: svgOpen + '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>',
+    yellow: svgOpen + '<path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>'
+};
+const THEME_NAMES = { light: 'Light', dark: 'Dark', yellow: 'Eye saver' };
+
+function updateThemeButton() {
+    const t = root.dataset.theme || 'light';
+    const next = THEMES[(THEMES.indexOf(t) + 1) % THEMES.length];
+    themeBtn.innerHTML = THEME_ICONS[next];
+    themeBtn.setAttribute('aria-label', 'Switch to ' + THEME_NAMES[next].toLowerCase() + ' mode');
+}
+themeBtn.addEventListener('click', () => {
+    const cur = root.dataset.theme || 'light';
+    const next = THEMES[(THEMES.indexOf(cur) + 1) % THEMES.length];
     if (next === 'light') {
         delete root.dataset.theme;
     } else {
         root.dataset.theme = next;
     }
     localStorage.setItem('theme', next);
+    updateThemeButton();
 });
+updateThemeButton();
 
 /* USER MENU: the avatar in the top bar opens Profile / Security / Privacy policy / Contact us / FAQs */
 const userMenuToggle = $('userMenuToggle');
@@ -253,7 +273,7 @@ function renderList() {
         del.setAttribute('role', 'menuitem');
         del.innerHTML = trashIcon;
         del.appendChild(el('span', '', 'Delete'));
-        del.addEventListener('click', () => askDelete(l));
+        del.addEventListener('click', () => enterDeleteMode(l));
 
         const acts = el('div', 'note-actions');
         const menuWrap = el('div', 'note-menu-wrap');
@@ -289,6 +309,25 @@ function renderList() {
         menu.addEventListener('click', closeNoteMenus);
         menuWrap.append(menuToggle, menu);
         acts.append(open, menuWrap);
+        if (deleteMode) {
+            // checkbox only appears after Delete is chosen
+            const pick = el('label', 'select-box');
+            const cb = el('input');
+            cb.type = 'checkbox';
+            cb.checked = selectedIds.has(l.id);
+            cb.setAttribute('aria-label', 'Select ' + l.title + ' for deletion');
+            cb.addEventListener('change', () => {
+                if (cb.checked) selectedIds.add(l.id);
+                else selectedIds.delete(l.id);
+                row.classList.toggle('selected', cb.checked);
+                updateDeleteBar();
+            });
+            const tick = el('span', 'select-tick');
+            tick.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+            pick.append(cb, tick);
+            acts.appendChild(pick);
+            row.classList.toggle('selected', cb.checked);
+        }
         row.append(ico, info, acts);
         box.appendChild(row);
     });
@@ -342,17 +381,61 @@ async function convertNote(l, btn) {
 
 /* DELETE WITH CONFIRMATION */
 const trashIcon = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" /></svg>';
-let pendingDelete = null;
+let pendingDelete = []; // the notes waiting for the user's confirmation
 
-function askDelete(l) {
-    pendingDelete = l;
-    $('confirmText').textContent = '"' + l.title + '" and its notes will be removed. This can\'t be undone.';
+// "Delete" in a note's menu starts delete mode: checkboxes appear and that note is ticked already
+function enterDeleteMode(l) {
+    deleteMode = true;
+    selectedIds.clear();
+    if (l) selectedIds.add(l.id);
+    syncDeleteMode();
+}
+
+function exitDeleteMode() {
+    deleteMode = false;
+    selectedIds.clear();
+    syncDeleteMode();
+}
+
+function syncDeleteMode() {
+    $('deleteBar').hidden = !deleteMode;
+    $('uploadBtn').hidden = deleteMode;
+    updateDeleteBar();
+    renderList();
+}
+
+function updateDeleteBar() {
+    const n = selectedIds.size;
+    $('deleteSelected').textContent = 'Delete (' + n + ')';
+    $('deleteSelected').disabled = n === 0;
+    $('deleteSelectAll').textContent = n && n === lessons.length ? 'Clear all' : 'Select all';
+}
+
+$('deleteCancel').addEventListener('click', exitDeleteMode);
+$('deleteSelectAll').addEventListener('click', () => {
+    if (selectedIds.size === lessons.length) selectedIds.clear();
+    else lessons.forEach(l => selectedIds.add(l.id));
+    updateDeleteBar();
+    renderList();
+});
+$('deleteSelected').addEventListener('click', () => askDelete(lessons.filter(l => selectedIds.has(l.id))));
+
+function askDelete(list) {
+    if (!list.length) return;
+    pendingDelete = list;
+    if (list.length === 1) {
+        $('confirmTitle').textContent = 'Delete this note?';
+        $('confirmText').textContent = '"' + list[0].title + '" and its notes will be removed. This can\'t be undone.';
+    } else {
+        $('confirmTitle').textContent = 'Delete ' + list.length + ' notes?';
+        $('confirmText').textContent = 'These ' + list.length + ' notes and their generated notes will be removed. This can\'t be undone.';
+    }
     $('confirmModal').hidden = false;
     $('confirmCancel').focus();
 }
 
 function closeConfirm() {
-    pendingDelete = null;
+    pendingDelete = [];
     $('confirmModal').hidden = true;
 }
 $('confirmCancel').addEventListener('click', closeConfirm);
@@ -363,18 +446,31 @@ document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && !$('confirmModal').hidden) closeConfirm();
 });
 $('confirmOk').addEventListener('click', async () => {
-    const l = pendingDelete;
+    const list = pendingDelete;
     closeConfirm();
-    if (!l) return;
-    try {
-        await apiCall('delete', {
-            id: l.id
-        }, 'POST'); // soft delete: the row stays in the table with deleted_at filled in
-        lessons = lessons.filter(x => x.id !== l.id);
-    } catch (err) {
-        setHint(err.message, true);
+    if (!list.length) return;
+    let failed = 0,
+        lastError = '';
+    for (const l of list) {
+        try {
+            await apiCall('delete', {
+                id: l.id
+            }, 'POST'); // soft delete: the row stays in the table with deleted_at filled in
+            lessons = lessons.filter(x => x.id !== l.id);
+            selectedIds.delete(l.id);
+        } catch (err) {
+            failed++;
+            lastError = err.message;
+        }
     }
-    renderList();
+    if (failed) {
+        // keep delete mode open with the failed notes still ticked so the user can try again
+        setHint(failed + (failed === 1 ? ' note' : ' notes') + ' could not be deleted. ' + lastError, true);
+        updateDeleteBar();
+        renderList();
+    } else {
+        exitDeleteMode();
+    }
 });
 
 /* LOG OUT WITH CONFIRMATION */
@@ -548,17 +644,31 @@ $('nameForm').addEventListener('submit', async e => {
 });
 
 // saves the note and its files in the database first, then opens it
+// small centred popup shown while the server saves the files and makes the note; it cannot be dismissed, so it closes itself when done
+function showGenerating(title) {
+    $('generatingName').textContent = title;
+    $('generatingModal').hidden = false;
+    document.querySelector('#generatingModal .modal-box').focus();
+}
+
+function hideGenerating() {
+    $('generatingModal').hidden = true;
+}
+
 async function createLesson(title, names, action, sizes, files) {
     let r;
+    showGenerating(title);
     try {
         r = await apiCall('create', {
             title: title,
             uploads: files
         }, 'POST');
     } catch (err) {
+        hideGenerating();
         setHint(err.message, true);
         return;
     }
+    hideGenerating();
     const l = {
         id: r.id,
         title: r.title,
@@ -590,6 +700,10 @@ function setNoteUrl(id) {
 function showHome() {
     stopSpeech();
     current = null;
+    deleteMode = false;
+    selectedIds.clear();
+    $('deleteBar').hidden = true;
+    $('uploadBtn').hidden = false;
     setNoteUrl(0);
     document.body.classList.add('home-active');
     $('viewLesson').hidden = true;
