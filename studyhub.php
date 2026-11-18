@@ -347,6 +347,8 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
             window.STUDYHUB_UPLOAD_BYTES = <?= upload_file_limit() ?>;
             window.STUDYHUB_CSRF = <?= json_encode(csrf_token()) ?>;
         </script>
+        <script src="lib/marked.min.js"></script>
+        <script src="lib/purify.min.js"></script>
         <script src="studyhub.js"></script>
 
     </body>

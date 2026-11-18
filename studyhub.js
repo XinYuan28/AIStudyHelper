@@ -79,6 +79,9 @@ let listError = '';
 let current = null;
 let notesText = '';
 let speechText = '';
+let speechDisplay = ''; // what the Text-to-Speech box shows (readable, not sent to the voice)
+let speechPayload = ''; // same as speechText, but each table is wrapped in [[T0]]...[[/T0]] markers
+let speechTables = [];  // the raw Markdown tables, sent to Gemini for narration
 let currentQuestions = [];
 let pendingPanel = ''; // set from ?panel= in the address, e.g. coming back from the Game Quiz page
 let deleteMode = false; // true after "Delete" is chosen in a note's menu: checkboxes appear on every note
@@ -805,14 +808,7 @@ $('notesToQuiz').addEventListener('click', () => startQuiz(currentQuestions.slic
 
 /* EXPORT NOTES: PDF, slides (.pptx) or plain text. Everything is made in the browser (libraries are in the lib folder). */
 function notesForExport() {
-    return Array.from($('notesBody').querySelectorAll('.note-sec')).map(s => {
-        const h = s.querySelector('h3');
-        const p = s.querySelector('p');
-        return {
-            h: h ? h.textContent : '',
-            p: p ? p.textContent : ''
-        };
-    });
+    return currentSections.slice();
 }
 
 function exportName(title) {
@@ -863,7 +859,8 @@ const PDF_CSS = 'body{margin:0;width:680px;font-family:"Segoe UI",Inter,system-u
     '.sub{color:#6b5f62;font-size:13.3px;margin:0;padding-bottom:12px;border-bottom:2px solid #c8424d}' +
     '.blk{padding:0 0 18px;background:#fff}' +
     'h2{font-size:18.7px;line-height:1.3;margin:0 0 6px}' +
-    'p{margin:0 0 5px}.li{position:relative;padding-left:22px;margin:0 0 3px}.li:before{content:"\\2022";position:absolute;left:8px}';
+    'p{margin:0 0 5px}.li{position:relative;padding-left:22px;margin:0 0 3px}.li:before{content:"\\2022";position:absolute;left:8px}' +
+    'table{border-collapse:collapse;width:100%;margin:6px 0 10px;font-size:14px}th,td{border:1px solid #cfc6c8;padding:5px 8px;text-align:left;vertical-align:top}th{background:#f3e6e8}';
 
 function exportHtml(secs, title) {
     const page = document.implementation.createHTMLDocument(title);
@@ -871,12 +868,27 @@ function exportHtml(secs, title) {
     charset.setAttribute('charset', 'utf-8');
     page.head.prepend(charset);
     const style = page.createElement('style');
-    style.textContent = 'body{font:1rem/1.6 system-ui;max-width:48rem;margin:2rem auto;padding:0 1rem}p{white-space:pre-wrap;overflow-wrap:anywhere}';
+    style.textContent = 'body{font:1rem/1.6 system-ui;max-width:48rem;margin:2rem auto;padding:0 1rem}p{white-space:pre-wrap;overflow-wrap:anywhere}' +
+        'table{border-collapse:collapse;width:100%;margin:.8rem 0}th,td{border:1px solid #bbb;padding:.4rem .6rem;text-align:left;vertical-align:top}th{background:#f3e6e8}';
     page.head.append(style);
     page.body.append(el('h1', '', title));
-    secs.forEach(({ h, p }) => {
+    secs.forEach(sec => {
         const section = el('section');
-        section.append(el('h2', '', h), el('p', '', p));
+        section.append(el('h2', '', sec.h));
+        const blocks = sec.blocks && sec.blocks.length ? sec.blocks : [{ type: 'text', p: sec.p }];
+        blocks.forEach(b => {
+            if (b.type === 'table') {
+                const t = el('table');
+                b.rows.forEach((r, i) => {
+                    const tr = el('tr');
+                    r.forEach(c => tr.append(el(i ? 'td' : 'th', '', c)));
+                    t.append(tr);
+                });
+                section.append(t);
+            } else {
+                section.append(el('p', '', b.p));
+            }
+        });
         page.body.append(section);
     });
     downloadBlob(new Blob(['<!doctype html>\n', page.documentElement.outerHTML], { type: 'text/html;charset=utf-8' }), exportName(title) + '.html');
@@ -892,8 +904,11 @@ async function exportPdf(secs, title) {
         '>': '&gt;',
         '"': '&quot;'
     }[c]));
-    const sectionHtml = s => '<div class="blk"><h2>' + esc(s.h) + '</h2>' + bodyLines(s.p).map(l =>
-        BULLET.test(l) ? '<div class="li">' + esc(l.replace(BULLET, '')) + '</div>' : '<p>' + esc(l) + '</p>').join('') + '</div>';
+    const lineHtml = l => BULLET.test(l) ? '<div class="li">' + esc(l.replace(BULLET, '')) + '</div>' : '<p>' + esc(l) + '</p>';
+    const tableHtml = rows => '<table>' + rows.map((r, i) => '<tr>' + r.map(c => (i ? '<td>' : '<th>') + esc(c) + (i ? '</td>' : '</th>')).join('') + '</tr>').join('') + '</table>';
+    const blockHtml = b => b.type === 'table' ? tableHtml(b.rows) : bodyLines(b.p).map(lineHtml).join('');
+    const sectionHtml = s => '<div class="blk"><h2>' + esc(s.h) + '</h2>' +
+        (s.blocks && s.blocks.length ? s.blocks.map(blockHtml).join('') : bodyLines(s.p).map(lineHtml).join('')) + '</div>';
     const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><style>' + PDF_CSS + '</style></head><body>' +
         '<div class="blk"><h1>' + esc(title) + '</h1><p class="sub">Study notes · AI Study Note Helper</p></div>' +
         secs.map(sectionHtml).join('') + '</body></html>';
@@ -930,7 +945,7 @@ async function exportPdf(secs, title) {
             });
             const k = canvas.height / total; // canvas pixels per layout pixel
             // places where a long section may be cut between two pages: the bottoms of its paragraphs and bullets
-            const marks = Array.from(el.querySelectorAll('p,.li')).map(n => n.getBoundingClientRect().bottom - box.top);
+            const marks = Array.from(el.querySelectorAll('p,.li,tr')).map(n => n.getBoundingClientRect().bottom - box.top);
             let off = 0;
             while (off < total - 0.5) {
                 const avail = (BOTTOM - y) * PX; // layout pixels left on this page
@@ -1030,60 +1045,40 @@ async function exportPptx(secs, title) {
         color: 'FFFFFF'
     });
 
+        const newSlide = title => {
+        const sl = pptx.addSlide();
+        sl.background = { color: 'FFFFFF' };
+        sl.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 0.25, h: 7.5, fill: { color: CORAL }, line: { color: CORAL } });
+        sl.addText(title, { x: 0.8, y: 0.45, w: 11.7, h: 1.0, fontSize: 28, bold: true, color: CORAL, valign: 'middle', fit: 'shrink' });
+        sl.slideNumber = { x: 12.3, y: 7.0, fontSize: 12, color: MUTED };
+        return sl;
+    };
+
     secs.forEach(sec => {
-        slideChunks(sec.p).forEach((chunk, n) => {
-            const sl = pptx.addSlide();
-            sl.background = {
-                color: 'FFFFFF'
-            };
-            sl.addShape(pptx.ShapeType.rect, {
-                x: 0,
-                y: 0,
-                w: 0.25,
-                h: 7.5,
-                fill: {
-                    color: CORAL
-                },
-                line: {
-                    color: CORAL
+        const blocks = sec.blocks && sec.blocks.length ? sec.blocks : [{ type: 'text', p: sec.p }];
+        let n = 0; // slides made for this section so far
+        blocks.forEach(b => {
+            if (b.type === 'table') {
+                const head = b.rows[0];
+                const body = b.rows.slice(1);
+                for (let k = 0; k < Math.max(body.length, 1); k += 7) { // 7 rows per slide, header repeated
+                    const sl = newSlide(sec.h + (n++ ? ' (continued)' : ''));
+                    const rows = [head.map(c => ({ text: c, options: { bold: true, color: 'FFFFFF', fill: { color: CORAL } } }))]
+                        .concat(body.slice(k, k + 7).map(r => r.map(c => ({ text: c }))));
+                    sl.addTable(rows, { x: 0.8, y: 1.7, w: 11.7, fontSize: 16, color: INK, valign: 'middle', border: { type: 'solid', pt: 1, color: 'CCCCCC' } });
                 }
-            });
-            sl.addText(sec.h + (n ? ' (continued)' : ''), {
-                x: 0.8,
-                y: 0.45,
-                w: 11.7,
-                h: 1.0,
-                fontSize: 28,
-                bold: true,
-                color: CORAL,
-                valign: 'middle',
-                fit: 'shrink'
-            });
-            if (chunk.length) {
-                sl.addText(chunk.map(t => ({
-                    text: t,
-                    options: {
-                        bullet: true,
-                        breakLine: true
+            } else if (b.p.trim()) {
+                slideChunks(b.p).forEach(chunk => {
+                    const sl = newSlide(sec.h + (n++ ? ' (continued)' : ''));
+                    if (chunk.length) {
+                        sl.addText(chunk.map(t => ({ text: t, options: { bullet: true, breakLine: true } })), {
+                            x: 0.8, y: 1.7, w: 11.7, h: 5.0, fontSize: 20, color: INK, valign: 'top', paraSpaceAfter: 8
+                        });
                     }
-                })), {
-                    x: 0.8,
-                    y: 1.7,
-                    w: 11.7,
-                    h: 5.0,
-                    fontSize: 20,
-                    color: INK,
-                    valign: 'top',
-                    paraSpaceAfter: 8
                 });
             }
-            sl.slideNumber = {
-                x: 12.3,
-                y: 7.0,
-                fontSize: 12,
-                color: MUTED
-            };
         });
+        if (!n) newSlide(sec.h);
     });
     await pptx.writeFile({
         fileName: exportName(title) + '.pptx'
@@ -1097,9 +1092,45 @@ function closeExport() {
 // what the export box will save: {secs, title}. Either the note that is open, or a saved note picked on the home page.
 let exportTarget = null;
 
+// splits Markdown into text blocks and table blocks, so exports can draw real tables
+function plainMd(t) {
+    return String(t).replace(/^#{1,6}\s+/gm, '').replace(/(\*\*|__|`)/g, '').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+function splitBlocks(md) {
+    const lines = String(md).split('\n');
+    const blocks = [];
+    let text = [];
+    const flush = () => {
+        if (text.length) blocks.push({ type: 'text', p: plainMd(text.join('\n')) });
+        text = [];
+    };
+    for (let i = 0; i < lines.length; i++) {
+        if (/^\s*\|/.test(lines[i])) {
+            flush();
+            let rows = [];
+            while (i < lines.length && /^\s*\|/.test(lines[i])) {
+                const cells = lines[i].trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim());
+                if (!cells.every(c => /^:?-{2,}:?$/.test(c))) rows.push(cells.map(plainMd)); // skip the --- row
+                i++;
+            }
+            i--;
+            if (rows.length) {
+                const w = rows[0].length; // make every row the same width
+                rows = rows.map(r => r.concat(Array(Math.max(0, w - r.length)).fill('')).slice(0, w));
+                blocks.push({ type: 'table', rows: rows });
+            }
+        } else {
+            text.push(lines[i]);
+        }
+    }
+    flush();
+    return blocks.filter(b => b.type === 'table' || b.p);
+}
+
 function openExport(secs, title) {
     exportTarget = {
-        secs: secs,
+        secs: secs.map(s => ({ h: s.h, p: stripMd(s.p), blocks: splitBlocks(s.p) })),
         title: title
     };
     $('exportTitle').textContent = 'Export "' + title + '"';
@@ -1146,15 +1177,29 @@ document.querySelectorAll('#exportModal [data-fmt]').forEach(b => b.addEventList
    In the notes.content column a note is plain text: sections separated by a blank line,
    the first line of each section is its heading and the lines after it are its body. */
 function parseNotes(content) {
-    return String(content).split(/\n\s*\n/).map(b => b.trim()).filter(Boolean).map(b => {
+    const text = String(content).replace(/\r\n/g, '\n');
+    if (/^##\s+/m.test(text)) { // new Markdown notes: one section per "## " heading
+        const out = [];
+        let cur = null;
+        text.split('\n').forEach(line => {
+            const m = line.match(/^##\s+(.*)$/);
+            if (m) {
+                cur = { h: m[1].trim(), p: '' };
+                out.push(cur);
+            } else if (cur) {
+                cur.p += line + '\n';
+            } else if (line.trim()) {
+                cur = { h: 'Overview', p: line + '\n' };
+                out.push(cur);
+            }
+        });
+        out.forEach(s => { s.p = s.p.trim(); });
+        return out;
+    }
+    // old plain-text notes: sections separated by a blank line
+    return text.split(/\n\s*\n/).map(b => b.trim()).filter(Boolean).map(b => {
         const nl = b.indexOf('\n');
-        return nl === -1 ? {
-            h: b,
-            p: ''
-        } : {
-            h: b.slice(0, nl).trim(),
-            p: b.slice(nl + 1).trim()
-        };
+        return nl === -1 ? { h: b, p: '' } : { h: b.slice(0, nl).trim(), p: b.slice(nl + 1).trim() };
     });
 }
 
@@ -1163,7 +1208,91 @@ function serializeNotes(sections) {
 }
 
 // draws the notes card and prepares the text that Text-to-Speech reads
+let currentSections = []; // the sections now on screen (raw Markdown), used by Export
+
+// Markdown -> safe HTML (falls back to plain text if the libraries are missing)
+function mdToHtml(text) {
+    if (window.marked && window.DOMPurify) {
+        return DOMPurify.sanitize(marked.parse(text, { gfm: true, breaks: true }));
+    }
+    return text.replace(/[&<>]/g, c => '&#' + c.charCodeAt(0) + ';').replace(/\n/g, '<br>');
+}
+
+// Markdown -> plain text (for text-to-speech, export and the short summaries)
+function stripMd(t) {
+    return String(t)
+        .replace(/^[ \t]*\|?[ \t:|-]+\|[ \t:|-]*$/gm, '') // table divider rows
+        .replace(/^[ \t]*\|(.+)\|[ \t]*$/gm, (m, row) => row.split('|').map(c => c.trim()).filter(Boolean).join(' · '))
+        .replace(/^#{1,6}\s+/gm, '')
+        .replace(/(\*\*|__|`)/g, '')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+}
+
+// Text-to-speech: Markdown -> plain text, with tables read out in a simple way
+function speechMd(t, tables, heading) {
+    const lines = String(t).split('\n');
+    const out = [];
+    for (let i = 0; i < lines.length; i++) {
+        if (/^\s*\|/.test(lines[i])) {
+            const raw = [], rows = [];
+            while (i < lines.length && /^\s*\|/.test(lines[i])) {
+                raw.push(lines[i].trim());
+                rows.push(lines[i].trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim()));
+                i++;
+            }
+            i--;
+            const head = rows[0] || [];
+            const fb = ['Table with columns ' + head.join(', ') + '.'];
+            rows.slice(2).forEach(r => {
+                const rest = r.slice(1).map((c, n) => (head[n + 1] ? head[n + 1] + ': ' : '') + c).join('. ');
+                fb.push(r[0] + '. ' + rest + '.');
+            });
+            if (tables) { // wrap the simple version in markers; the server swaps in the AI narration
+                const n = tables.length;
+                tables.push((heading ? 'Section: ' + heading + '\n' : '') + raw.join('\n'));
+                out.push('[[T' + n + ']]\n' + fb.join('\n') + '\n[[/T' + n + ']]');
+            } else {
+                out.push(fb.join('\n'));
+            }
+        } else {
+            out.push(lines[i]);
+        }
+    }
+    return out.join('\n')
+        .replace(/^#{1,6}\s+/gm, '')
+        .replace(/^\s*[-•*]\s+(.+?)\s*$/gm, (m, x) => /[.!?:]$/.test(x) ? x : x + '.')
+        .replace(/(\*\*|__|`)/g, '')
+        .replace(/\p{Extended_Pictographic}\uFE0F?/gu, '')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+}
+
+// Markdown -> readable text for the Text-to-Speech box (tables shown as one short line)
+function displayMd(t) {
+    const lines = String(t).split('\n');
+    const out = [];
+    for (let i = 0; i < lines.length; i++) {
+        if (/^\s*\|/.test(lines[i])) {
+            const head = lines[i].trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim()).filter(Boolean);
+            while (i < lines.length && /^\s*\|/.test(lines[i])) i++;
+            i--;
+            out.push('[Table: ' + head.join(', ') + ' (explained aloud)]');
+        } else {
+            out.push(lines[i]);
+        }
+    }
+    return out.join('\n')
+        .replace(/^#{1,6}[ \t]+/gm, '')
+        .replace(/^[ \t]*[-*][ \t]+/gm, '• ')
+        .replace(/(\*\*|__|`)/g, '')
+        .replace(/\p{Extended_Pictographic}\uFE0F?/gu, '')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+}
+
 function renderNotes(sections, lead, tag) {
+    currentSections = sections;
     const body = $('notesBody');
     body.textContent = '';
     const visual = $('notesVisual');
@@ -1175,15 +1304,29 @@ function renderNotes(sections, lead, tag) {
     sections.forEach(s => {
         const d = el('div', 'note-sec');
         d.appendChild(el('h3', '', s.h));
-        if (s.p) d.appendChild(el('p', '', s.p));
+        if (s.p) {
+            const md = el('div', 'md');
+            md.innerHTML = mdToHtml(s.p);
+            d.appendChild(md);
+        }
         body.appendChild(d);
         const card = el('li', 'visual-card');
         card.append(el('h3', '', s.h));
-        const summary = s.p.trim().split(/(?<=[.!?])\s+|\n/).filter(Boolean).slice(0, 2).join(' ');
+        const plain = stripMd(s.p).replace(/^\s*[-•*]\s*/gm, '');
+        const summary = plain.trim().split(/(?<=[.!?])\s+|\n/).filter(Boolean).slice(0, 2).join(' ');
         if (summary) card.append(el('p', '', summary.length > 220 ? summary.slice(0, 217) + '…' : summary));
         visual.append(card);
     });
-    speechText = sections.map(s => s.p ? s.h + '. ' + s.p.replace(/^\s*[-•*]\s*/gm, '') : s.h).join('\n\n');
+    const noEmoji = h => h.replace(/\p{Extended_Pictographic}\uFE0F?/gu, '').trim();
+    speechTables = [];
+    speechPayload = sections.map(s => {
+        const h = noEmoji(s.h);
+        return s.p ? h + '.\n' + speechMd(s.p, speechTables, h) : h;
+    }).join('\n\n');
+    speechDisplay = sections.map(s => {
+        const h = noEmoji(s.h);
+        return s.p ? h + '\n' + displayMd(s.p) : h;
+    }).join('\n\n');
 }
 
 function setVisualView(enabled) {
@@ -1610,7 +1753,7 @@ function ttsMessage(text, warn) {
 }
 
 function fillTts() {
-    $('ttsText').textContent = speechText || notesText;
+    $('ttsText').textContent = speechDisplay || speechText || notesText;
     if (!ttsBusy) $('ttsMsg').hidden = true;
 }
 
@@ -1620,7 +1763,9 @@ async function getGeminiAudio() {
     if (ttsBlob && ttsBlobText === text) return ttsBlob;
     const fd = new FormData();
     fd.append('csrf', window.STUDYHUB_CSRF);
-    fd.append('text', text);
+    const usePayload = speechText && speechPayload;
+    fd.append('text', usePayload ? speechPayload : text);
+    if (usePayload && speechTables.length) fd.append('tables', JSON.stringify(speechTables));
     let res;
     try {
         res = await fetch('api/tts.php', {

@@ -1,0 +1,248 @@
+/* profile.css — extra styles for the Settings pages.
+   Load it AFTER studyhub.css: layout, topbar, buttons, cards, sidebar and themes all come from studyhub.css. */
+
+.profile-head {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding-bottom: 1.2rem;
+    border-bottom: 1px solid var(--line);
+}
+
+.profile-head b {
+    display: block;
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    overflow-wrap: anywhere;
+}
+
+.profile-head small {
+    display: block;
+    color: var(--muted);
+    font-size: .85rem;
+}
+
+.profile-avatar {
+    flex: none;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: var(--tint);
+    border: 2px solid var(--primary);
+    color: var(--primary);
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+/* text / email / date inputs (same look as the "Name your notes" box) */
+.input {
+    width: 100%;
+    padding: .8rem 1.1rem;
+    font-family: var(--font-body);
+    font-size: 1rem;
+    color: var(--ink);
+    background: var(--bg);
+    border: 1.5px solid var(--line);
+    border-bottom-width: 4px;
+    border-radius: 14px;
+}
+
+.input:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+[data-theme="dark"] .input {
+    color-scheme: dark;
+}
+
+.field.has-error .input {
+    border-color: var(--bad);
+}
+
+.field-error {
+    margin-top: .45rem;
+    color: var(--bad);
+    font-size: .85rem;
+    font-weight: 500;
+}
+
+.feedback.ok {
+    margin-bottom: 1.2rem;
+}
+
+.field-hint {
+    margin-top: .4rem;
+    color: var(--muted);
+    font-size: .85rem;
+}
+
+.field-hint a {
+    color: var(--primary);
+    font-weight: 500;
+}
+
+.field-hint a:hover {
+    text-decoration: underline;
+}
+
+.field-hint b {
+    color: var(--ink);
+    overflow-wrap: anywhere;
+}
+
+/* read-only email on the Profile page */
+.input[readonly] {
+    background: var(--surface);
+    color: var(--muted);
+    cursor: not-allowed;
+}
+
+/* Security page: a few stacked cards */
+.panel form.card+form.card {
+    margin-top: 1.4rem;
+}
+
+.card h3 {
+    font-size: 1.15rem;
+}
+
+.card .current-email {
+    margin-top: -.6rem;
+}
+
+.card.danger-zone {
+    border-color: var(--bad);
+}
+
+.card.danger-zone h3 {
+    color: var(--bad);
+}
+
+/* Privacy policy text */
+.card.legal h3 {
+    margin: 1.6rem 0 .4rem;
+}
+
+.card.legal h3:first-of-type {
+    margin-top: 0;
+}
+
+.card.legal p,
+.card.legal li {
+    color: var(--muted);
+}
+
+.card.legal b {
+    color: var(--ink);
+}
+
+.card.legal ul {
+    margin: .4rem 0 0 1.2rem;
+    display: grid;
+    gap: .35rem;
+}
+
+.card.legal a {
+    color: var(--primary);
+    font-weight: 500;
+}
+
+.card.legal a:hover {
+    text-decoration: underline;
+}
+
+.card.legal .updated {
+    margin-bottom: 1.2rem;
+    font-size: .85rem;
+}
+
+/* FAQs (same look as the landing page list) */
+.faq-list {
+    display: grid;
+    gap: .8rem;
+    margin-bottom: 1.4rem;
+}
+
+.faq-list details {
+    padding: 0 1.2rem;
+    background: var(--card);
+    border: 1.5px solid var(--line);
+    border-bottom-width: 4px;
+    border-radius: 16px;
+}
+
+.faq-list details[open] {
+    border-color: var(--primary);
+}
+
+.faq-list summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 0;
+    font-family: var(--font-display);
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+}
+
+.faq-list summary::-webkit-details-marker {
+    display: none;
+}
+
+.faq-list summary::after {
+    content: "+";
+    flex: none;
+    color: var(--primary);
+    font-size: 1.5rem;
+    line-height: 1;
+}
+
+.faq-list details[open] summary::after {
+    content: "\2013";
+}
+
+.faq-list details p {
+    padding-bottom: 1.1rem;
+    color: var(--muted);
+}
+
+.faq-more .form-actions {
+    justify-content: flex-start;
+    margin-top: .8rem;
+}
+
+/* Contact form */
+textarea.input {
+    min-height: 160px;
+    resize: vertical;
+    line-height: 1.5;
+}
+
+.panel .card+.card {
+    margin-top: 1.4rem;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: .8rem;
+    padding-top: .4rem;
+}
+
+/* "Home" text link in the breadcrumb (same look as Study Hub's Home button) */
+.crumbs a.home-link {
+    color: var(--muted);
+    font-size: inherit;
+    font-weight: inherit;
+}
+
+.crumbs a.home-link:hover {
+    color: var(--primary);
+}

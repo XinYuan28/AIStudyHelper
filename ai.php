@@ -132,17 +132,27 @@ function ai_generate(array $files, array $folderNames = []): array {
         $folderHint = "\nExisting subjects: $list. If the material fits one of them, use that exact name as \"subject\".";
     }
 
-    $prompt = <<<TXT
+        $prompt = <<<TXT
 You are a study assistant. Read the attached study material and return ONLY JSON in this shape:
 {
   "title": "short title for these notes",
   "subject": "one to three word subject name, e.g. Biology",
-  "notes": "clear, well-organised study notes in plain text, with short headings",
+  "notes": "study notes written in Markdown, following the notes rules below",
   "questions": [
     {"question": "...", "options": ["A","B","C","D"], "answer": 0, "topic": "short topic name", "explain": "why the correct answer is right for this specific question"}
   ]
 }
 Rules: up to 30 distinct multiple-choice questions (aim for 30 when supported by the material, minimum 4), exactly 4 options each, "answer" is the index (0-3) of the correct option as a number, "topic" names the concept being tested.
+
+Notes rules (the "notes" value is one Markdown string):
+- Start directly with a "## " heading. Do not write a "# " title, the title field already has it.
+- Every section starts with a "## " heading that begins with one fitting emoji, e.g. "## 🧠 Key Concepts". Use 5 to 10 sections.
+- The first section is "## 📌 Summary" with 2-3 sentences.
+- Under each heading use short bullet points ("- ", under 20 words each) for key ideas.
+- Use a Markdown table (with a header row) whenever you compare things, list terms with definitions, or show steps, dates or formulas.
+- Bold important terms with **double asterisks**. No italics, no code blocks, no HTML.
+- The last section is "## ✅ Quick Recap" with 3-5 bullets.
+- Only use facts from the material. Never invent facts.
 TXT;
     $prompt .= $folderHint;
 

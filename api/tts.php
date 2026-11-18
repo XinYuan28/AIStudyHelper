@@ -61,7 +61,7 @@ $text = trim(is_string($_POST['text'] ?? null) ? $_POST['text'] : '');
 if ($text === '') {
     tts_fail(400, 'There is no text to turn into audio.');
 }
-if (mb_strlen($text) > TTS_MAX_CHARS) {
+if (mb_strlen($text) > TTS_MAX_CHARS * 2) {
     tts_fail(413, 'These notes are too long to turn into one audio file.');
 }
 
@@ -71,7 +71,7 @@ if (AI_API_KEY === '') {
 
 $_SESSION['tts_last'] = $now;
 session_write_close();
-set_time_limit(200);
+set_time_limit(300);   // one extra Gemini call (table narration) + up to 4 audio chunks
 
 /* split long notes at paragraph / word boundaries */
 function tts_chunks(string $text): array
@@ -199,6 +199,89 @@ $shapes = [
 ];
 $shape = 0;
 $pcm   = '';
+
+/* Asks Gemini to turn the tables into spoken narration. Returns [table number => narration]; [] if anything fails. */
+function tts_narrate(array $tables): array
+{
+    $keys = [];
+    $items = [];
+    foreach ($tables as $k => $t) {
+        if (!is_string($t) || trim($t) === '') continue;
+        $keys[] = $k;
+        $items[] = mb_substr($t, 0, 2500);
+        if (count($keys) >= 10) break;   // the rest use the simple version
+    }
+    if (!$keys) return [];
+
+    $list = '';
+    foreach ($items as $j => $t) {
+        $list .= "\nTable " . ($j + 1) . ":\n" . $t . "\n";
+    }
+    $prompt = <<<'TXT'
+Convert each numbered table below into natural, student-friendly spoken narration for a Text-to-Speech system.
+
+Rules:
+1. Introduce what the table is about.
+2. Do not read column headers repeatedly.
+3. Explain each row naturally.
+4. For comparison tables, highlight differences and similarities.
+5. For numerical tables, explain important values and trends without omitting essential information.
+6. Use transitions such as "first", "next", "whereas", and "in comparison".
+7. Preserve all important facts and relationships.
+8. Do not invent or alter information.
+9. Use short sentences suitable for listening.
+10. Plain narration only: no Markdown, no symbols, no emoji.
+11. Start directly with the content. Never say "Here is the narration".
+
+Return ONLY JSON: {"narrations": ["narration for table 1", "narration for table 2"]}
+Keep the same order and the same number of items as the tables.
+TXT;
+
+    $n = count($keys);
+    $validate = function (array $d) use ($n): ?array {
+        $a = $d['narrations'] ?? null;
+        if (!is_array($a) || count($a) !== $n) return null;
+        $clean = [];
+        foreach ($a as $s) {
+            $s = trim(preg_replace('/[*`|#]/', '', (string) $s));
+            if ($s === '') return null;
+            $clean[] = $s;
+        }
+        return ['narrations' => $clean];
+    };
+
+    try {
+        [$data] = ai_run([['text' => $prompt . "\n" . $list]], $validate, 8000, 40);
+    } catch (Throwable $e) {
+        return [];   // 429, timeout, bad JSON... the simple version is read instead
+    }
+    $out = [];
+    foreach ($keys as $j => $k) {
+        $out[$k] = $data['narrations'][$j];
+    }
+    return $out;
+}
+
+/* swaps each [[T0]]...[[/T0]] block for its narration, or for the simple version when there is none */
+function tts_apply_tables(string $text, array $narr): string
+{
+    $text = preg_replace_callback('/\[\[T(\d+)\]\](.*?)\[\[\/T\1\]\]/s', function ($m) use ($narr) {
+        $i = (int) $m[1];
+        return isset($narr[$i]) ? "\n\n" . $narr[$i] . "\n\n" : "\n\n" . trim($m[2]) . "\n\n";
+    }, $text);
+    return trim(preg_replace('/\n{3,}/', "\n\n", $text));
+}
+
+$original = $text;
+$tables = json_decode((string) ($_POST['tables'] ?? ''), true);
+$narr = is_array($tables) && $tables ? tts_narrate($tables) : [];
+$text = tts_apply_tables($text, $narr);
+if (mb_strlen($text) > TTS_MAX_CHARS) {
+    $text = tts_apply_tables($original, []);   // too long with narration: use the simple version
+}
+if (mb_strlen($text) > TTS_MAX_CHARS) {
+    tts_fail(413, 'These notes are too long to turn into one audio file.');
+}
 
 foreach (tts_chunks($text) as $chunk) {
     $audio = null;

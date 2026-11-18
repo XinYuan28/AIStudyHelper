@@ -1816,3 +1816,44 @@ body.home-active {
 .visual-card p {
     margin-bottom: 0;
 }
+
+/* table styles for notes */
+.md table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: .8rem 0;
+    display: block;
+    overflow-x: auto;
+}
+
+.md th,
+.md td {
+    border: 1px solid rgba(128, 128, 128, .4);
+    padding: .45rem .7rem;
+    text-align: left;
+    vertical-align: top;
+}
+
+.md th {
+    background: rgba(128, 128, 128, .15);
+}
+
+.md ul,
+.md ol {
+    margin: .4rem 0 .6rem 1.2rem;
+    padding: 0;
+}
+
+.md li {
+    margin: .2rem 0;
+}
+
+.md p {
+    margin: .4rem 0;
+}
+
+.md img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+}
