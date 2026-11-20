@@ -7,6 +7,12 @@
    POST api.php?action=delete                    -> id            (soft delete: sets notes.deleted_at)
    POST api.php?action=save_notes                -> id, content, mode, [as_new, title]
    POST api.php?action=save_quiz                 -> note_id, total, correct, points, best_streak, difficulty, qtype, weak_areas
+   GET  api.php?action=list_reminders
+   GET  api.php?action=download_reminder_calendar&id=N -> iCalendar event with an alert
+   POST api.php?action=create_reminder           -> title, scheduled_at, time_zone, delivery_method
+   POST api.php?action=edit_reminder             -> id and the same fields as create_reminder
+   POST api.php?action=cancel_reminder           -> id
+   Reminder scheduled_at format: YYYY-MM-DDTHH:MM:SS+HH:MM (use +00:00 for UTC).
    Every POST needs the csrf token (same csrf_ok() the login form uses). */
 
 ini_set('display_errors', '0'); // warnings must never break the JSON (set before anything is loaded)
@@ -14,6 +20,9 @@ ini_set('display_errors', '0'); // warnings must never break the JSON (set befor
 require_once __DIR__ . '/auth.php';   // also loads db.php
 require_once __DIR__ . '/extract.php';
 require_once __DIR__ . '/ai.php';
+require_once __DIR__ . '/telegram.php';
+require_once __DIR__ . '/reminders_backend.php';
+require_once __DIR__ . '/trash_backend.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
@@ -33,6 +42,7 @@ function fail(int $code, string $message): void
 
 // real errors go to the PHP error log; the browser only gets a friendly message
 set_exception_handler(function (Throwable $e) {
+    if ($e instanceof ReminderException) fail($e->status, $e->getMessage());
     error_log('[api.php] ' . $e->getMessage());
     fail(500, 'DEBUG: ' . get_class($e) . ': ' . $e->getMessage() . ' @ ' . basename($e->getFile()) . ':' . $e->getLine());
 });
@@ -46,7 +56,9 @@ if ($uid < 1) {
 }
 
 $action = $_GET['action'] ?? '';
-$writes = ['create', 'rename', 'delete', 'save_notes', 'save_quiz'];
+$writes = ['create', 'rename', 'delete', 'save_notes', 'save_quiz',
+    'create_reminder', 'edit_reminder', 'cancel_reminder', 'delete_reminder',
+    'connect_telegram', 'disconnect_telegram', 'restore_note', 'permanently_delete_note'];
 if ($action === 'create' && empty($_FILES) && empty($_POST)
     && ($postLimit = php_size_bytes((string) ini_get('post_max_size'))) > 0
     && (int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > $postLimit) {
@@ -88,7 +100,219 @@ function own_note(int $id, int $uid): ?array
     return $st->fetch() ?: null;
 }
 
+function reminder_fields(): array
+{
+    $title = $_POST['title'] ?? null;
+    $method = $_POST['delivery_method'] ?? null;
+    $time = $_POST['scheduled_at'] ?? null;
+    $zone = $_POST['time_zone'] ?? null;
+    $noteId = null;
+    if (isset($_POST['note_id']) && $_POST['note_id'] !== '') {
+        $noteId = int_in('note_id', 1, PHP_INT_MAX);
+        $note = own_note($noteId, current_user_id());
+        if (!$note) {
+            fail(404, 'Study note not found.');
+        }
+        $title = $note['title'];
+    }
+    $description = $_POST['description'] ?? '';
+    if (!is_string($description) || !mb_check_encoding($description, 'UTF-8') || mb_strlen($description, 'UTF-8') > 2000) {
+        fail(400, 'Keep the reminder note within 2000 characters.');
+    }
+
+    if (!is_string($title) || trim($title) === '' || !mb_check_encoding($title, 'UTF-8')
+        || mb_strlen(trim($title), 'UTF-8') > 255) {
+        fail(400, 'Enter a reminder title of up to 255 characters.');
+    }
+    if (!in_array($method, ['calendar', 'telegram'], true)) {
+        fail(400, 'Choose Calendar or Telegram.');
+    }
+    if ($method === 'telegram') {
+        if (!telegram_configured()) {
+            fail(503, 'Telegram reminders are awaiting bot setup.');
+        }
+        $connection = db()->prepare('SELECT user_id FROM telegram_connections WHERE user_id = ?');
+        $connection->execute([current_user_id()]);
+        if (!$connection->fetchColumn()) {
+            fail(400, 'Connect your Telegram account before saving a Telegram reminder.');
+        }
+    }
+    if (!is_string($zone) || !in_array($zone, DateTimeZone::listIdentifiers(), true)) {
+        fail(400, 'Choose a valid time zone.');
+    }
+    if (!is_string($time) || !preg_match('/\A[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[+-][0-9]{2}:[0-9]{2}\z/', $time)) {
+        fail(400, 'Enter a date and time with its UTC offset.');
+    }
+    $format = 'Y-m-d\TH:i:sP';
+    $date = DateTimeImmutable::createFromFormat('!' . $format, $time);
+    if (!$date || $date->setTimezone(new DateTimeZone($zone))->format($format) !== $time) {
+        fail(400, 'The date, time, and UTC offset must match the selected time zone.');
+    }
+    $utc = $date->setTimezone(new DateTimeZone('UTC'));
+    if ($utc->getTimestamp() <= time() || (int) $utc->format('Y') > 9999) {
+        fail(400, 'Choose a future reminder date within the supported range.');
+    }
+    $duration = isset($_POST['duration_minutes']) ? int_in('duration_minutes', 1, 2147483647) : 30;
+    if ((int) $utc->modify('+' . $duration . ' minutes')->format('Y') > 9999) {
+        fail(400, 'Choose a shorter study period.');
+    }
+    $lead = isset($_POST['lead_minutes']) ? int_in('lead_minutes', 0, 60) : 0;
+    if (!in_array($lead, [0, 5, 15, 30, 60], true)) fail(400, 'Choose a valid reminder time.');
+    return [trim($title), $utc->format('Y-m-d H:i:s'), $zone, $method, $noteId, trim($description), $duration, $method === 'telegram' ? $lead : 0];
+}
+
+function reminder_calendar_file(int $id, string $title, string $scheduledAtUtc, string $description = '', int $duration = 30): string
+{
+    $start = new DateTimeImmutable($scheduledAtUtc, new DateTimeZone('UTC'));
+    $title = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $title);
+    $title = strtr($title, ["\\" => "\\\\", "\r\n" => "\\n", "\r" => "\\n", "\n" => "\\n",
+        ';' => '\\;', ',' => '\\,']);
+    $lines = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//AI Study Helper//Study Reminders//EN',
+        'BEGIN:VEVENT',
+        'UID:study-reminder-' . $id . '@aistudyhelper',
+        'DTSTAMP:' . gmdate('Ymd\THis\Z'),
+        'DTSTART:' . $start->format('Ymd\THis\Z'),
+        'DTEND:' . $start->modify('+' . $duration . ' minutes')->format('Ymd\THis\Z'),
+        'SUMMARY:' . $title,
+        'DESCRIPTION:' . strtr(
+            preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $description),
+            ["\\" => "\\\\", "\r\n" => "\\n", "\r" => "\\n", "\n" => "\\n", ';' => '\\;', ',' => '\\,']
+        ),
+        'BEGIN:VALARM',
+        'ACTION:DISPLAY',
+        'TRIGGER:PT0S',
+        'DESCRIPTION:' . $title,
+        'END:VALARM',
+        'END:VEVENT',
+        'END:VCALENDAR',
+    ];
+
+    $calendar = '';
+    foreach ($lines as $line) {
+        while (strlen($line) > 75) {
+            $part = mb_strcut($line, 0, 75, 'UTF-8');
+            $calendar .= $part . "\r\n";
+            $line = ' ' . substr($line, strlen($part));
+        }
+        $calendar .= $line . "\r\n";
+    }
+    return $calendar;
+}
+
 switch ($action) {
+
+    case 'list_trash':
+        if ($_SERVER['REQUEST_METHOD'] !== 'GET') fail(405, 'Use GET.');
+        $sort = $_GET['sort'] ?? 'newest';
+        if (!in_array($sort, ['newest', 'oldest'], true)) fail(400, 'Choose a valid deletion-date sort order.');
+        out(['notes' => list_trashed_notes($uid, $sort)]);
+
+    case 'restore_note':
+        $id = int_in('id', 1, PHP_INT_MAX);
+        if (!restore_trashed_note($uid, $id)) {
+            fail(404, 'This note is no longer in your Trash or its 10-day retention period has ended.');
+        }
+        out(['id' => $id]);
+
+    case 'permanently_delete_note':
+        $id = int_in('id', 1, PHP_INT_MAX);
+        if (!permanently_delete_trashed_note($uid, $id)) {
+            fail(404, 'This note is no longer in your Trash.');
+        }
+        out(['id' => $id]);
+
+
+    case 'telegram_status':
+        if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+            fail(405, 'Use GET.');
+        }
+        if (!telegram_configured()) {
+            out(['connected' => false, 'configured' => false]);
+        }
+        $st = db()->prepare('SELECT user_id FROM telegram_connections WHERE user_id = ?');
+        $st->execute([$uid]);
+        out(['connected' => (bool) $st->fetchColumn(), 'configured' => true]);
+
+    case 'connect_telegram':
+        if (!telegram_configured()) {
+            fail(503, 'Telegram reminders are awaiting bot setup.');
+        }
+        $token = bin2hex(random_bytes(24));
+        $st = db()->prepare('INSERT INTO telegram_link_tokens (token_hash, user_id, expires_at_utc)
+            VALUES (?, ?, UTC_TIMESTAMP() + INTERVAL 10 MINUTE)
+            ON DUPLICATE KEY UPDATE token_hash = VALUES(token_hash), expires_at_utc = VALUES(expires_at_utc)');
+        $st->execute([hash('sha256', $token), $uid]);
+        out(['url' => 'https://t.me/' . rawurlencode(telegram_settings()['username']) . '?start=' . $token]);
+
+    case 'disconnect_telegram':
+        $pdo = db();
+        $pdo->beginTransaction();
+        try {
+            $pdo->prepare('DELETE FROM telegram_link_tokens WHERE user_id = ?')->execute([$uid]);
+            $pdo->prepare('DELETE FROM telegram_connections WHERE user_id = ?')->execute([$uid]);
+            $pdo->commit();
+        } catch (Throwable $error) {
+            $pdo->rollBack();
+            throw $error;
+        }
+        out();
+
+    case 'download_reminder_calendar':
+        if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+            fail(405, 'Use GET.');
+        }
+        $id = filter_var($_GET['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        if ($id === false) {
+            fail(400, 'Invalid reminder ID.');
+        }
+        $st = db()->prepare(
+            "SELECT title, scheduled_at_utc, description, duration_minutes FROM study_reminders
+             WHERE id = ? AND user_id = ? AND delivery_method = 'calendar' AND cancelled_at_utc IS NULL"
+        );
+        $st->execute([$id, $uid]);
+        $reminder = $st->fetch();
+        if (!$reminder) {
+            fail(404, 'Calendar reminder not found.');
+        }
+        $calendar = reminder_calendar_file($id, $reminder['title'], $reminder['scheduled_at_utc'], $reminder['description'] ?? '', (int) $reminder['duration_minutes']);
+        header('Content-Type: text/calendar; charset=utf-8');
+        header('Content-Disposition: attachment; filename="study-reminder-' . $id . '.ics"');
+        echo $calendar;
+        exit;
+
+    case 'list_reminders':
+        if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+            fail(405, 'Use GET.');
+        }
+        $st = db()->prepare(
+            "SELECT id, title, DATE_FORMAT(scheduled_at_utc, '%Y-%m-%dT%H:%i:%sZ') AS scheduled_at,
+                    time_zone, delivery_method, telegram_sent_at_utc, note_id, description, duration_minutes, lead_minutes
+             FROM study_reminders WHERE user_id = ? AND cancelled_at_utc IS NULL
+             ORDER BY scheduled_at_utc, id"
+        );
+        $st->execute([$uid]);
+        out(['reminders' => $st->fetchAll()]);
+
+    case 'create_reminder':
+        $fields = reminder_fields();
+        $id = save_study_reminder($fields, $uid);
+        http_response_code(201);
+        out(['id' => $id]);
+
+    case 'edit_reminder':
+        $id = int_in('id', 1, PHP_INT_MAX);
+        $fields = reminder_fields();
+        save_study_reminder($fields, $uid, $id);
+        out(['id' => $id]);
+
+    case 'cancel_reminder':
+    case 'delete_reminder':
+        $id = int_in('id', 1, PHP_INT_MAX);
+        delete_study_reminder($uid, $id);
+        out(['id' => $id]);
 
     case 'list':
         $st = db()->prepare(
@@ -296,14 +520,17 @@ switch ($action) {
         $streak  = int_in('best_streak', 0, $total);
         $diff    = strtolower((string) ($_POST['difficulty'] ?? ''));
         $diff    = in_array($diff, ['easy', 'medium', 'hard'], true) ? $diff : 'medium';
-        $qtype   = ($_POST['qtype'] ?? '') === 'text' ? 'text' : 'mcq';
+        $qtype = $_POST['qtype'] ?? 'mcq';
+        if (!in_array($qtype, ['mcq', 'text', 'dual'], true)) fail(400, 'Choose a valid question type.');
+        $sections = isset($_POST['sections']) ? int_in('sections', 1, 5) : 1;
+        if ($sections > $total) fail(400, 'Choose no more sections than questions.');
         $weak    = mb_substr(trim((string) ($_POST['weak_areas'] ?? '')), 0, 2000);
 
         db()->prepare(
             'INSERT INTO quiz_results
-                (user_id, note_id, topic, difficulty, question_type, total_questions, correct_answers, points, best_streak, weak_areas)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-        )->execute([$uid, $noteId, mb_substr($note['title'], 0, 255), $diff, $qtype, $total, $correct, $points, $streak, $weak === '' ? null : $weak]);
+                (user_id, note_id, topic, difficulty, question_type, total_questions, correct_answers, points, best_streak, weak_areas, section_count)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        )->execute([$uid, $noteId, mb_substr($note['title'], 0, 255), $diff, $qtype, $total, $correct, $points, $streak, $weak === '' ? null : $weak, $sections]);
         out(['id' => (int) db()->lastInsertId()]);
 
     default:

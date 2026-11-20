@@ -35,7 +35,6 @@
     --shadow: 0 6px 20px rgba(0, 0, 0, .4);
 }
 
-/* EYE SAVER: "Warm Oatmeal" page (#F6E8C1) with dark brown text (#4A3B2C) and a soft rose accent */
 [data-theme="yellow"] {
     --bg: #fbf3dc;
     --surface: #f6e8c1;
@@ -1778,45 +1777,6 @@ body.home-active {
 
 }
 
-.notes-visual {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
-    gap: 1rem;
-    list-style: none;
-    padding: 0;
-    counter-reset: concept;
-}
-
-.notes-visual[hidden] {
-    display: none;
-}
-
-.visual-card {
-    counter-increment: concept;
-    border: 1px solid currentColor;
-    border-top: 5px solid #539b86;
-    border-radius: 12px;
-    padding: 1rem;
-    overflow-wrap: anywhere;
-}
-
-.visual-card:nth-child(3n + 2) {
-    border-top-color: #a879bf;
-}
-
-.visual-card:nth-child(3n + 3) {
-    border-top-color: #ce9256;
-}
-
-.visual-card::before {
-    content: "Concept " counter(concept);
-    font-weight: 600;
-}
-
-.visual-card p {
-    margin-bottom: 0;
-}
-
 /* table styles for notes */
 .md table {
     border-collapse: collapse;
@@ -1856,4 +1816,92 @@ body.home-active {
     max-width: 100%;
     height: auto;
     border-radius: 8px;
+}
+.tts-selection-help {
+    margin: 0 0 12px;
+    color: var(--muted);
+    font-size: .85rem;
+    line-height: 1.6;
+}
+.tts-word {
+    cursor: pointer;
+    touch-action: manipulation;
+    border-radius: 3px;
+}
+.tts-word:hover {
+    background: var(--tint);
+}
+.tts-word.selected {
+    background: var(--primary);
+    color: var(--on-primary);
+}
+.tts-word:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+/* TTS action labels sit below the controls and follow the current theme. */
+.tts-controls {
+    padding-bottom: 2.6rem;
+}
+.tts-controls .btn.icon-only[aria-label]::before {
+    top: calc(100% + 10px);
+    bottom: auto;
+    background: var(--ink);
+    color: var(--card);
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow);
+}
+/* Notes and TTS share the same theme-aware action labels. */
+#panel-notes .actions {
+    padding-bottom: 2.6rem;
+}
+#panel-notes .actions .btn.icon-only[aria-label]::before {
+    top: calc(100% + 10px);
+    bottom: auto;
+    background: var(--ink);
+    color: var(--card);
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow);
+}
+.dual-question-counts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    padding: 18px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface);
+}
+.dual-question-counts[hidden] {
+    display: none;
+}
+.dual-question-counts input {
+    width: 100%;
+    padding: 10px;
+    color: var(--ink);
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font: inherit;
+}
+#dualCountHint {
+    grid-column: 1 / -1;
+    color: var(--muted);
+    font-size: .85rem;
+}
+@media (max-width: 480px) {
+    .dual-question-counts {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.quiz-top {
+    flex-wrap: wrap;
+}
+.quiz-top .bar {
+    min-width: 80px;
+}
+.quiz-section {
+    flex-shrink: 0;
 }

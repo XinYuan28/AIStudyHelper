@@ -428,10 +428,10 @@ function askDelete(list) {
     pendingDelete = list;
     if (list.length === 1) {
         $('confirmTitle').textContent = 'Delete this note?';
-        $('confirmText').textContent = '"' + list[0].title + '" and its notes will be removed. This can\'t be undone.';
+        $('confirmText').textContent = '"' + list[0].title + '" will move to Trash. You can restore it for 10 days before it is permanently deleted.';
     } else {
         $('confirmTitle').textContent = 'Delete ' + list.length + ' notes?';
-        $('confirmText').textContent = 'These ' + list.length + ' notes and their generated notes will be removed. This can\'t be undone.';
+        $('confirmText').textContent = 'These ' + list.length + ' notes will move to Trash. You can restore them for 10 days before they are permanently deleted.';
     }
     $('confirmModal').hidden = false;
     $('confirmCancel').focus();
@@ -723,14 +723,14 @@ function openLesson(id, fresh) {
     setNoteUrl(current.id);
     $('sideGame').href = 'play_menu.php?note=' + encodeURIComponent(current.id); // so the Game Quiz page can bring you back to this note
     speechText = '';
+    speechDisplay = '';
+    speechPayload = '';
+    speechTables = [];
     if (!fresh) {
         notesText = '';
         currentQuestions = [];
     }
     $('notesBody').textContent = '';
-    $('notesVisual').replaceChildren();
-    $('notesVisualToggle').hidden = true;
-    setVisualView(false);
     $('notesLead').textContent = '';
     $('notesSaved').hidden = true;
     $('startTitle').textContent = current.title;
@@ -756,6 +756,10 @@ function openLesson(id, fresh) {
             if (!notesText) notesText = r.content || '';
             const want = pendingPanel; // 'custom' or 'tts' when we came back from the Game Quiz page
             pendingPanel = '';
+            if (stillHere && want === 'game') {
+                startQuiz(currentQuestions.slice(0, 8));
+                return;
+            }
             if (stillHere && r.content) {
                 renderNotes(parseNotes(r.content), r.mode === 'personalised' ? 'Focus notes made from your quiz mistakes.' : 'Generated from your study materials.', '');
                 showPanel(want === 'custom' || want === 'tts' ? want : 'notes');
@@ -791,8 +795,16 @@ $('logoLink').addEventListener('click', e => {
 });
 
 // only the sidebar buttons that open a panel (Game Quiz is now a plain link to play_menu.php)
-document.querySelectorAll('.side-item[data-panel]').forEach(b => b.addEventListener('click', () => {
+document.querySelectorAll('.side-item[data-panel]').forEach(b => b.addEventListener('click', event => {
+    event.preventDefault();
     const p = b.dataset.panel;
+    if (!current) {
+        pendingPanel = p;
+        $('featureMessage').textContent = 'Open your study materials to use this feature.';
+        $('viewHome').scrollIntoView({ block: 'start' });
+        return;
+    }
+    $('featureMessage').textContent = '';
     // Nothing generated yet: let the user choose notes or quiz instead of forcing one
     if (p === 'notes' && !notesText && !$('quizArea').childElementCount) showPanel('start');
     else if (p === 'game' && !$('quizArea').childElementCount && !notesText) showPanel('start');
@@ -1295,10 +1307,6 @@ function renderNotes(sections, lead, tag) {
     currentSections = sections;
     const body = $('notesBody');
     body.textContent = '';
-    const visual = $('notesVisual');
-    visual.replaceChildren();
-    $('notesVisualToggle').hidden = !sections.length;
-    setVisualView(false);
     $('notesLead').textContent = lead;
     if (tag) body.appendChild(el('span', 'tag', tag));
     sections.forEach(s => {
@@ -1310,12 +1318,6 @@ function renderNotes(sections, lead, tag) {
             d.appendChild(md);
         }
         body.appendChild(d);
-        const card = el('li', 'visual-card');
-        card.append(el('h3', '', s.h));
-        const plain = stripMd(s.p).replace(/^\s*[-•*]\s*/gm, '');
-        const summary = plain.trim().split(/(?<=[.!?])\s+|\n/).filter(Boolean).slice(0, 2).join(' ');
-        if (summary) card.append(el('p', '', summary.length > 220 ? summary.slice(0, 217) + '…' : summary));
-        visual.append(card);
     });
     const noEmoji = h => h.replace(/\p{Extended_Pictographic}\uFE0F?/gu, '').trim();
     speechTables = [];
@@ -1328,14 +1330,6 @@ function renderNotes(sections, lead, tag) {
         return s.p ? h + '\n' + displayMd(s.p) : h;
     }).join('\n\n');
 }
-
-function setVisualView(enabled) {
-    $('notesVisual').hidden = !enabled;
-    $('notesBody').hidden = enabled;
-    $('notesVisualToggle').setAttribute('aria-pressed', String(enabled));
-}
-
-$('notesVisualToggle').addEventListener('click', () => setVisualView($('notesVisual').hidden));
 
 function showSaveMsg(text, warn) {
     const m = $('notesSaved');
@@ -1389,7 +1383,8 @@ function buildNotes(mode, wrong) {
 function startQuiz(questions, meta) {
     meta = Object.assign({
         difficulty: 'Medium',
-        type: 'mcq'
+        type: 'mcq',
+        sections: 1
     }, meta);
     if (!questions || !questions.length) {
         // stay where the person is and say why, instead of dropping them back on the start screen
@@ -1402,6 +1397,7 @@ function startQuiz(questions, meta) {
         }
         return;
     }
+    meta.sections = Math.max(1, Math.min(5, Math.trunc(Number(meta.sections) || 1), questions.length));
     const area = $('quizArea');
     let i = 0,
         score = 0,
@@ -1422,13 +1418,17 @@ function startQuiz(questions, meta) {
             fill = el('i');
         fill.style.width = (i / questions.length * 100) + '%';
         bar.appendChild(fill);
+        const section = Math.floor(i * meta.sections / questions.length) + 1;
+        top.append(el('span', 'chip quiz-section', 'Section ' + section + ' of ' + meta.sections));
         top.append(el('span', '', (i + 1) + ' / ' + questions.length), bar, el('span', 'chip', score + ' pts'), el('span', 'chip', 'Streak ' + streak));
         const card = el('div', 'card');
         card.appendChild(el('h3', 'q-text', q.q));
         const opts = el('div', q.type === 'text' ? 'text-answer' : 'opts');
         const fb = el('div', 'feedback');
         fb.hidden = true;
-        const next = el('button', 'btn small', i === questions.length - 1 ? 'See results' : 'Next');
+        const nextSection = Math.floor((i + 1) * meta.sections / questions.length) + 1;
+        const nextLabel = i === questions.length - 1 ? 'See results' : nextSection !== section ? 'Next section' : 'Next';
+        const next = el('button', 'btn small', nextLabel);
         next.type = 'button';
         next.hidden = true;
         next.style.marginTop = '1rem';
@@ -1606,6 +1606,7 @@ function startQuiz(questions, meta) {
                 best_streak: best,
                 difficulty: meta.difficulty.toLowerCase(),
                 qtype: meta.type,
+                sections: meta.sections,
                 weak_areas: weakNames.join(', ')
             }, 'POST').then(() => {
                 msg.textContent = 'Your result is saved.';
@@ -1642,6 +1643,23 @@ function bindSlider(input, out, format) {
 }
 bindSlider($('numQuestions'), $('numValue'), v => v);
 bindSlider($('difficulty'), $('diffValue'), v => DIFF_LABELS[v]);
+bindSlider($('numSections'), $('sectionValue'), v => v);
+
+function updateDualQuestionCounts() {
+    const dual = $('customForm').querySelector('[name="qtype"]:checked').value === 'dual';
+    $('dualQuestionCounts').hidden = !dual;
+    $('mcqCount').required = dual;
+    $('mcqCount').disabled = !dual;
+    $('writtenCount').required = dual;
+    $('writtenCount').disabled = !dual;
+    const total = Number($('numQuestions').value);
+    $('mcqCount').max = Math.max(1, total - 1);
+    $('writtenCount').max = Math.max(1, total - 1);
+    $('dualCountHint').textContent = 'The two counts must add up to ' + total + ' questions.';
+}
+document.querySelectorAll('#customForm [name="qtype"]').forEach(input => input.addEventListener('change', updateDualQuestionCounts));
+$('numQuestions').addEventListener('input', updateDualQuestionCounts);
+updateDualQuestionCounts();
 
 async function loadQuizHistory() {
     const list = $('quizHistory');
@@ -1677,37 +1695,61 @@ function updateQuizCount() {
     m.hidden = false;
 }
 
+function customiseQuizQuestions(source, settings) {
+    if (!Number.isInteger(settings.sections) || settings.sections < 1 || settings.sections > 5) throw new Error('Choose between 1 and 5 sections.');
+    let questions = source.slice();
+    if (settings.order === 'shuffle') {
+        for (let i = questions.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [questions[i], questions[j]] = [questions[j], questions[i]];
+        }
+    }
+    questions = questions.slice(0, settings.count);
+    if (settings.type === 'dual') {
+        if (!Number.isInteger(settings.mcq) || !Number.isInteger(settings.written)
+            || settings.mcq < 1 || settings.written < 1 || settings.mcq + settings.written !== settings.count) {
+            throw new Error('Multiple-choice and written counts must add up to ' + settings.count + '.');
+        }
+        if (questions.length < settings.count) {
+            throw new Error('This note has ' + questions.length + ' questions. Lower the total before choosing the dual counts.');
+        }
+    }
+    if (settings.sections > questions.length) {
+        throw new Error('Choose no more sections than the number of available questions.');
+    }
+    return questions.map((question, index) => {
+        const written = settings.type === 'text' || (settings.type === 'dual' && index >= settings.mcq);
+        return Object.assign({}, question, {
+            type: written ? 'text' : 'mcq',
+            answer: written ? question.options[question.answer] : question.answer
+        });
+    });
+}
+
 $('customForm').addEventListener('submit', e => {
     e.preventDefault();
     const f = new FormData(e.target);
     const settings = {
-        count: parseInt(f.get('count'), 10),
+        count: Number(f.get('count')),
         difficulty: DIFF_LABELS[f.get('difficulty')],
-        type: f.get('qtype'), // 'mcq' or 'text'
-        order: f.get('order')
+        type: f.get('qtype'),
+        order: f.get('order'),
+        sections: Number(f.get('sections')),
+        mcq: Number(f.get('mcq_count')),
+        written: Number(f.get('written_count'))
     };
     if (!currentQuestions.length) {
         updateQuizCount();
         return;
     }
-    let qs = currentQuestions.slice();
-    if (settings.order === 'shuffle') {
-        for (let i = qs.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [qs[i], qs[j]] = [qs[j], qs[i]];
-        }
+    try {
+        const questions = customiseQuizQuestions(currentQuestions, settings);
+        startQuiz(questions, { difficulty: settings.difficulty, type: settings.type, sections: settings.sections });
+    } catch (error) {
+        $('customMsg').textContent = error.message;
+        $('customMsg').classList.add('warn');
+        $('customMsg').hidden = false;
     }
-    qs = qs.slice(0, settings.count);
-    if (settings.type === 'text') {
-        qs = qs.map(q => Object.assign({}, q, {
-            type: 'text',
-            answer: q.options[q.answer]
-        }));
-    }
-    startQuiz(qs, {
-        difficulty: settings.difficulty,
-        type: settings.type
-    });
 });
 
 /* TEXT-TO-SPEECH
@@ -1718,9 +1760,16 @@ let ttsAudio = null; // the <audio> playing the Gemini voice
 let ttsBlob = null; // last WAV made + the text it was made from, so Play and Download never ask Gemini twice
 let ttsBlobText = '';
 let ttsBusy = ''; // '' | 'play' | 'download'
+let ttsSourceText = '';
+let ttsSelectedStart = null;
+let ttsAudioText = '';
+let ttsLastWordStart = null;
+let ttsLastWordTime = 0;
+let ttsTap = null;
+let ttsPointerDown = null;
 let ttsToken = 0; // bumped by Stop / leaving the panel, so a slow answer from Gemini is not played afterwards
 
-function stopSpeech() {
+function stopSpeech(resetPosition = true) {
     ttsToken++;
     if (synth) synth.cancel();
     if (ttsAudio) {
@@ -1728,6 +1777,14 @@ function stopSpeech() {
         ttsAudio.currentTime = 0;
     }
     if (ttsBusy === 'play') setTtsBusy('');
+    if (resetPosition) {
+        ttsSelectedStart = null;
+        const selected = $('ttsText').querySelector('.tts-word.selected');
+        if (selected) {
+            selected.classList.remove('selected');
+            selected.removeAttribute('aria-current');
+        }
+    }
 }
 
 function setTtsBusy(kind, text) {
@@ -1753,17 +1810,117 @@ function ttsMessage(text, warn) {
 }
 
 function fillTts() {
-    $('ttsText').textContent = speechDisplay || speechText || notesText;
+    const text = speechDisplay || speechText || notesText;
+    const container = $('ttsText');
+    if (text !== ttsSourceText || !container.childNodes.length) {
+        stopSpeech();
+        ttsSourceText = text;
+        ttsTap = null;
+        ttsPointerDown = null;
+        container.replaceChildren();
+        const segments = typeof Intl.Segmenter === 'function'
+            ? new Intl.Segmenter(undefined, { granularity: 'word' }).segment(text)
+            : Array.from(text.matchAll(/[\p{L}\p{N}][\p{L}\p{M}\p{N}'’\-]*|[^\p{L}\p{N}]+/gu),
+                match => ({ segment: match[0], index: match.index, isWordLike: /^[\p{L}\p{N}]/u.test(match[0]) }));
+        const fragment = document.createDocumentFragment();
+        let firstWord = true;
+        for (const segment of segments) {
+            if (!segment.isWordLike) {
+                fragment.append(document.createTextNode(segment.segment));
+                continue;
+            }
+            const word = el('span', 'tts-word', segment.segment);
+            word.dataset.start = segment.index;
+            word.setAttribute('role', 'button');
+            word.setAttribute('aria-label', 'Read from “' + segment.segment + '”');
+            word.tabIndex = firstWord ? 0 : -1;
+            firstWord = false;
+            fragment.append(word);
+        }
+        container.append(fragment);
+    }
     if (!ttsBusy) $('ttsMsg').hidden = true;
 }
 
+function selectedSpeechText() {
+    return ttsSelectedStart === null ? (speechText || notesText) : ttsSourceText.slice(ttsSelectedStart);
+}
+
+function readFromTtsWord(word) {
+    if (!word || ! $('ttsText').contains(word)) return;
+    if (ttsBusy === 'download') {
+        ttsMessage('Wait for the audio download to finish, then choose a word.');
+        return;
+    }
+    const start = Number(word.dataset.start);
+    const now = performance.now();
+    // Touch browsers can emit a double-click after the pointer double-tap.
+    if (start === ttsLastWordStart && now - ttsLastWordTime < 600) return;
+    ttsLastWordStart = start;
+    ttsLastWordTime = now;
+    ttsSelectedStart = start;
+    $('ttsText').querySelectorAll('.tts-word.selected').forEach(item => {
+        item.classList.remove('selected');
+        item.removeAttribute('aria-current');
+    });
+    word.classList.add('selected');
+    word.setAttribute('aria-current', 'true');
+    playTts(true);
+}
+
+$('ttsText').addEventListener('dblclick', event => {
+    const word = event.target.closest('.tts-word');
+    if (!word) return;
+    event.preventDefault();
+    readFromTtsWord(word);
+});
+$('ttsText').addEventListener('pointerdown', event => {
+    if (event.pointerType !== 'touch') return;
+    ttsPointerDown = { x: event.clientX, y: event.clientY, time: performance.now() };
+});
+$('ttsText').addEventListener('pointercancel', () => { ttsTap = null; ttsPointerDown = null; });
+$('ttsText').addEventListener('pointerup', event => {
+    if (event.pointerType !== 'touch') return;
+    const down = ttsPointerDown;
+    ttsPointerDown = null;
+    const word = event.target.closest('.tts-word');
+    const now = performance.now();
+    if (!down || !word || now - down.time > 500 || Math.hypot(event.clientX - down.x, event.clientY - down.y) > 12) {
+        ttsTap = null;
+        return;
+    }
+    if (ttsTap && ttsTap.word === word && now - ttsTap.time < 450) {
+        ttsTap = null;
+        readFromTtsWord(word);
+    } else {
+        ttsTap = { word, time: now };
+    }
+});
+$('ttsText').addEventListener('keydown', event => {
+    const word = event.target.closest('.tts-word');
+    if (!word) return;
+    if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        readFromTtsWord(word);
+        return;
+    }
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const words = Array.from($('ttsText').querySelectorAll('.tts-word'));
+    const index = words.indexOf(word);
+    const nextIndex = event.key === 'Home' ? 0 : event.key === 'End' ? words.length - 1
+        : Math.max(0, Math.min(words.length - 1, index + (event.key === 'ArrowRight' ? 1 : -1)));
+    word.tabIndex = -1;
+    words[nextIndex].tabIndex = 0;
+    words[nextIndex].focus();
+});
+
 // asks api/tts.php for the Gemini voice (a WAV file). Throws an Error with a message the user can read.
-async function getGeminiAudio() {
-    const text = speechText || notesText;
+async function getGeminiAudio(text = speechText || notesText, useStructuredPayload = true) {
     if (ttsBlob && ttsBlobText === text) return ttsBlob;
     const fd = new FormData();
     fd.append('csrf', window.STUDYHUB_CSRF);
-    const usePayload = speechText && speechPayload;
+    const usePayload = useStructuredPayload && speechText && speechPayload;
     fd.append('text', usePayload ? speechPayload : text);
     if (usePayload && speechTables.length) fd.append('tables', JSON.stringify(speechTables));
     let res;
@@ -1793,52 +1950,56 @@ async function getGeminiAudio() {
         }
         throw new Error(m);
     }
-    ttsBlob = await res.blob();
+    const blob = await res.blob();
+    ttsBlob = blob;
     ttsBlobText = text;
-    return ttsBlob;
+    return blob;
 }
 
-function speakWithBrowser(reason) {
+function speakWithBrowser(reason, text = selectedSpeechText()) {
     if (!synth) {
         ttsMessage(reason, true);
         return;
     }
     synth.cancel();
-    const u = new SpeechSynthesisUtterance(speechText || notesText);
+    const u = new SpeechSynthesisUtterance(text);
     u.rate = parseFloat($('ttsRate').value);
     synth.speak(u);
     ttsMessage('The Gemini voice is not available right now, so the browser voice is reading instead. (' + reason + ')', true);
 }
 
-$('ttsPlay').addEventListener('click', async () => {
-    if (ttsBusy) return;
+async function playTts(restart = false) {
+    if (ttsBusy && !restart) return;
     if (!speechText && !notesText) fillTts();
+    const text = selectedSpeechText();
+    if (!text.trim()) return;
     // paused in the middle: carry on from there
-    if (ttsAudio && ttsAudio.paused && ttsAudio.currentTime > 0 && !ttsAudio.ended && ttsBlobText === (speechText || notesText)) {
-        ttsAudio.play();
+    if (!restart && ttsAudio && ttsAudio.paused && ttsAudio.currentTime > 0 && !ttsAudio.ended && ttsAudioText === text) {
+        ttsAudio.play().catch(() => ttsMessage('Press Play again to resume the audio.'));
         return;
     }
-    if (synth && synth.paused) {
+    if (!restart && synth && synth.paused) {
         synth.resume();
         return;
     }
-    stopSpeech();
+    stopSpeech(false);
     const mine = ttsToken;
-    const cached = ttsBlob && ttsBlobText === (speechText || notesText);
+    const cached = ttsBlob && ttsBlobText === text;
     setTtsBusy('play', cached ? '' : 'Getting the Gemini voice ready. The first time can take up to a minute for long notes.');
     let blob;
     try {
-        blob = await getGeminiAudio();
+        blob = await getGeminiAudio(text, ttsSelectedStart === null);
     } catch (err) {
         if (mine !== ttsToken) return; // Stop was pressed meanwhile
         setTtsBusy('');
-        speakWithBrowser(err.message);
+        speakWithBrowser(err.message, text);
         return;
     }
     if (mine !== ttsToken) return;
     setTtsBusy('');
     if (ttsAudio) URL.revokeObjectURL(ttsAudio.src);
     ttsAudio = new Audio(URL.createObjectURL(blob));
+    ttsAudioText = text;
     ttsAudio.playbackRate = parseFloat($('ttsRate').value);
     try {
         await ttsAudio.play();
@@ -1847,7 +2008,8 @@ $('ttsPlay').addEventListener('click', async () => {
         // some browsers refuse to start sound after a long wait: the audio is ready, one more click plays it
         ttsMessage('Your audio is ready. Press Play to listen.');
     }
-});
+}
+$('ttsPlay').addEventListener('click', () => playTts());
 $('ttsPause').addEventListener('click', () => {
     if (ttsAudio && !ttsAudio.paused) ttsAudio.pause();
     else if (synth) synth.pause();
@@ -1898,7 +2060,7 @@ if (deepNote) {
         const l = lessons.find(x => x.id === deepNote);
         if (l) {
             const want = new URLSearchParams(location.search).get('panel');
-            pendingPanel = (want === 'custom' || want === 'tts') ? want : '';
+            pendingPanel = ['game', 'custom', 'tts'].includes(want) ? want : '';
             openLesson(l.id);
         } else {
             setNoteUrl(0);
@@ -1907,6 +2069,11 @@ if (deepNote) {
         }
     });
 } else {
+    const requestedFeature = new URLSearchParams(location.search).get('panel');
+    if (['game', 'custom', 'tts'].includes(requestedFeature)) {
+        pendingPanel = requestedFeature;
+        $('featureMessage').textContent = 'Open your study materials to use this feature.';
+    }
     renderList(); // shows "Loading your notes…"
     refreshList(); // then fills the list from the notes table
 }

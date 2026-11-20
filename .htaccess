@@ -1,3 +1,7 @@
 <Files "config_ai.local.php">
     Require all denied
 </Files>
+
+<Files "telegram.local.php">
+    Require all denied
+</Files>

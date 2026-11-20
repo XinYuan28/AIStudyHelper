@@ -7,6 +7,8 @@ USE ai_study_note;
 CREATE TABLE IF NOT EXISTS users (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     username VARCHAR(50) NOT NULL,
+    gender VARCHAR(20) NULL,
+    birthday DATE NULL,
     email VARCHAR(255) NOT NULL,
     password VARCHAR(255) NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -38,6 +40,7 @@ CREATE TABLE IF NOT EXISTS notes (
     PRIMARY KEY (id),
     KEY idx_notes_user_updated (user_id, deleted_at, updated_at),
     KEY idx_notes_folder (folder_id),
+    KEY idx_notes_deleted (deleted_at, id),
     FULLTEXT KEY ft_notes_search (title, content),
     CONSTRAINT fk_notes_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
@@ -83,7 +86,8 @@ CREATE TABLE IF NOT EXISTS quiz_results (
     note_id INT UNSIGNED NULL,
     topic VARCHAR(255) NOT NULL DEFAULT 'General',
     difficulty ENUM('easy', 'medium', 'hard') NOT NULL DEFAULT 'medium',
-    question_type ENUM('mcq', 'text') NOT NULL DEFAULT 'mcq',
+    question_type ENUM('mcq', 'text', 'dual') NOT NULL DEFAULT 'mcq',
+    section_count TINYINT UNSIGNED NOT NULL DEFAULT 1,
     total_questions INT UNSIGNED NOT NULL DEFAULT 0,
     correct_answers INT UNSIGNED NOT NULL DEFAULT 0,
     points INT UNSIGNED NOT NULL DEFAULT 0,
@@ -108,6 +112,26 @@ CREATE TABLE IF NOT EXISTS game_scores (
     CONSTRAINT fk_game_scores_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
+CREATE TABLE IF NOT EXISTS study_reminders (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    user_id INT UNSIGNED NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    note_id INT UNSIGNED NULL,
+    description TEXT NULL,
+    duration_minutes INT UNSIGNED NOT NULL DEFAULT 30,
+    lead_minutes INT UNSIGNED NOT NULL DEFAULT 0,
+    scheduled_at_utc DATETIME NOT NULL,
+    time_zone VARCHAR(64) NOT NULL,
+    delivery_method ENUM('calendar', 'telegram') NOT NULL,
+    cancelled_at_utc DATETIME NULL,
+    telegram_sent_at_utc DATETIME NULL,
+    PRIMARY KEY (id),
+    KEY idx_study_reminders_user_schedule (user_id, scheduled_at_utc),
+    KEY idx_study_reminders_due (delivery_method, cancelled_at_utc, telegram_sent_at_utc, scheduled_at_utc),
+    CONSTRAINT fk_reminder_note FOREIGN KEY (note_id) REFERENCES notes(id) ON DELETE SET NULL,
+    CONSTRAINT fk_study_reminders_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
 SET @add_folder_constraint = IF(
     EXISTS (
         SELECT 1 FROM information_schema.TABLE_CONSTRAINTS
@@ -122,3 +146,37 @@ SET @add_folder_constraint = IF(
 PREPARE folder_constraint FROM @add_folder_constraint;
 EXECUTE folder_constraint;
 DEALLOCATE PREPARE folder_constraint;
+
+CREATE TABLE IF NOT EXISTS telegram_connections (
+    user_id INT UNSIGNED NOT NULL,
+    chat_id BIGINT NOT NULL,
+    PRIMARY KEY (user_id),
+    UNIQUE KEY uq_telegram_chat (chat_id),
+    CONSTRAINT fk_telegram_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS telegram_link_tokens (
+    token_hash CHAR(64) NOT NULL,
+    user_id INT UNSIGNED NOT NULL,
+    expires_at_utc DATETIME NOT NULL,
+    PRIMARY KEY (token_hash),
+    UNIQUE KEY uq_telegram_link_user (user_id),
+    CONSTRAINT fk_telegram_link_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS telegram_worker_state (
+    id TINYINT UNSIGNED NOT NULL,
+    next_update_id BIGINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id)
+) ENGINE=InnoDB;
+
+INSERT IGNORE INTO telegram_worker_state (id) VALUES (1);
+
+
+CREATE TABLE IF NOT EXISTS note_quizzes (
+    note_id INT UNSIGNED NOT NULL,
+    questions JSON NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (note_id),
+    CONSTRAINT fk_note_quizzes_note FOREIGN KEY (note_id) REFERENCES notes (id) ON DELETE CASCADE
+) ENGINE=InnoDB;

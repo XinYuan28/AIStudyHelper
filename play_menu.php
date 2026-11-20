@@ -50,6 +50,7 @@ $notes = $stmt->fetchAll();
     </head>
 
     <body>
+<?php require __DIR__ . '/feature_sidebar.php'; ?>
 
         <!-- LOG OUT CONFIRM -->
         <div class="modal" id="logoutConfirmModal" role="dialog" aria-modal="true" aria-labelledby="logoutConfirmTitle" hidden>
@@ -112,41 +113,7 @@ $notes = $stmt->fetchAll();
         <div class="lesson">
 
             <!-- SIDEBAR (same buttons as Study Hub; these go back to Study Hub, Game Quiz is this page) -->
-            <nav class="sidebar" aria-label="Features">
-                <a href="<?= htmlspecialchars(hub_url('notes')) ?>" class="side-item">
-                    <span class="side-icon">
-                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-                            <rect x="4" y="3" width="16" height="18" rx="3" />
-                            <path d="M8 8h8M8 12h8M8 16h5" />
-                        </svg>
-                    </span>Notes
-                </a>
-                <a href="play_menu.php<?= $noteId ? '?note=' . $noteId : '' ?>" class="side-item active" aria-current="page">
-                    <span class="side-icon">
-                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-                            <rect x="2.5" y="7" width="19" height="11" rx="5" />
-                            <path d="M7 10v5M4.5 12.5h5M15.5 11h.01M18 14h.01" />
-                        </svg>
-                    </span>Game Quiz
-                </a>
-                <a href="<?= htmlspecialchars(hub_url('custom')) ?>" class="side-item">
-                    <span class="side-icon">
-                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M4 7h10M18 7h2M4 17h2M10 17h10" />
-                            <circle cx="16" cy="7" r="2" />
-                            <circle cx="8" cy="17" r="2" />
-                        </svg>
-                    </span>Customise Quiz
-                </a>
-                <a href="<?= htmlspecialchars(hub_url('tts')) ?>" class="side-item">
-                    <span class="side-icon">
-                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M4 10v4h4l5 4V6L8 10H4z" />
-                            <path d="M16.5 9a4 4 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11" />
-                        </svg>
-                    </span>Text-to-Speech
-                </a>
-            </nav>
+
 
             <main class="lesson-main">
                 <div class="panel view">

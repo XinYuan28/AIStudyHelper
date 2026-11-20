@@ -58,22 +58,47 @@ function ai_json_from(string $text): ?array {
     $start = strpos($text, '{');
     $end   = strrpos($text, '}');
     if ($start === false || $end === false || $end <= $start) return null;
-    $d = json_decode(substr($text, $start, $end - $start + 1), true);
+    $json = substr($text, $start, $end - $start + 1);
+    $d = json_decode($json, true);
+    if (json_last_error() === JSON_ERROR_CTRL_CHAR) {
+        // Preserve model text while escaping literal line breaks inside JSON strings.
+        $fixed = '';
+        $inString = false;
+        $escaped = false;
+        foreach (str_split($json) as $character) {
+            if ($escaped) {
+                $fixed .= $character;
+                $escaped = false;
+                continue;
+            }
+            if ($inString && $character === '\\') {
+                $fixed .= $character;
+                $escaped = true;
+                continue;
+            }
+            if ($character === '"') $inString = !$inString;
+            $fixed .= $inString && ord($character) < 32
+                ? substr(json_encode($character), 1, -1) : $character;
+        }
+        $d = json_decode($fixed, true);
+    }
     return is_array($d) ? $d : null;
 }
 
-function ai_run(array $parts, callable $validate, int $maxTokens, int $timeout = 120): array {
+function ai_run(array $parts, callable $validate, int $maxTokens, int $timeout = 120, ?array $schema = null): array {
     if (AI_API_KEY === '') {
         throw new AiException('AI is not configured. Set GEMINI_API_KEY or add config_ai.local.php.');
     }
 
     $url  = 'https://generativelanguage.googleapis.com/v1beta/models/' . AI_MODEL . ':generateContent';
+    $generation = [
+        'responseMimeType' => 'application/json',
+        'maxOutputTokens' => $maxTokens,
+    ];
+    if ($schema !== null) $generation['responseJsonSchema'] = $schema;
     $body = json_encode([
-        'contents'         => [['parts' => $parts]],
-        'generationConfig' => [
-            'responseMimeType' => 'application/json',
-            'maxOutputTokens'  => $maxTokens,
-        ],
+        'contents' => [['parts' => $parts]],
+        'generationConfig' => $generation,
     ], JSON_INVALID_UTF8_SUBSTITUTE);
 
     $lastMsg = 'Unknown AI error.';
@@ -165,7 +190,8 @@ TXT;
     }
 
     $validate = function (array $d): ?array {
-        if (empty($d['notes']) || empty($d['questions']) || !is_array($d['questions'])) return null;
+        if (!is_string($d['notes'] ?? null) || trim($d['notes']) === ''
+            || empty($d['questions']) || !is_array($d['questions'])) return null;
 
         $clean = [];
         $seen = [];
@@ -200,7 +226,33 @@ TXT;
         ];
     };
 
-    [$result, $attempts] = ai_run($parts, $validate, 16000, 120);
+    $schema = [
+        'type' => 'object',
+        'properties' => [
+            'title' => ['type' => 'string'],
+            'subject' => ['type' => 'string'],
+            'notes' => ['type' => 'string', 'description' => 'Study notes in Markdown.'],
+            'questions' => [
+                'type' => 'array', 'minItems' => 4, 'maxItems' => 30,
+                'items' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'question' => ['type' => 'string'],
+                        'options' => [
+                            'type' => 'array', 'minItems' => 4, 'maxItems' => 4,
+                            'items' => ['type' => 'string'],
+                        ],
+                        'answer' => ['type' => 'integer', 'minimum' => 0, 'maximum' => 3],
+                        'topic' => ['type' => 'string'],
+                        'explain' => ['type' => 'string'],
+                    ],
+                    'required' => ['question', 'options', 'answer', 'topic', 'explain'],
+                ],
+            ],
+        ],
+        'required' => ['title', 'subject', 'notes', 'questions'],
+    ];
+    [$result, $attempts] = ai_run($parts, $validate, 16000, 120, $schema);
     $result['_attempts'] = $attempts;
     return $result;
 }
