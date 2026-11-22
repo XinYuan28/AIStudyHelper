@@ -180,6 +180,7 @@ $login    = $mode === 'login';
                         </div>
                         <div class="divider"><span>New here? <a href="#" data-auth="signup">Sign up!</a></span></div>
                         <button type="submit" class="btn-solid">Log in</button>
+                        <p><a href="reset_password.php">Forgot password?</a></p>
                         
                     </form>
 

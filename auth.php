@@ -75,6 +75,7 @@ function login_user(string $email, array $user): void
 {
     session_regenerate_id(true);
     $_SESSION['user_id'] = (int) $user['id'];   // users.id: notes and quiz results are saved against this
+    $_SESSION['auth_password'] = hash('sha256', $user['hash']);
     $_SESSION['email']   = $email;
     $_SESSION['name']    = $user['name'];
 }

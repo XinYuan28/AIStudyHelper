@@ -1,0 +1,6 @@
+.recovery { width: min(480px, calc(100% - 32px)); margin: 48px auto; padding: 24px; }
+.recovery h1 { font-size: 1.6rem; }
+.recovery p { margin: 16px 0; line-height: 1.6; }
+.recovery form:not([hidden]) { display: grid; gap: 12px; margin: 24px 0; }
+.recovery input { width: 100%; min-width: 0; font: inherit; font-size: 16px; padding: 12px; background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; }
+.recovery a { color: var(--primary-dark); }

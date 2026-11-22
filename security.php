@@ -46,6 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$errors) {
             $upd = $pdo->prepare('UPDATE users SET password = ? WHERE id = ?');
             $upd->execute([password_hash($new, PASSWORD_DEFAULT), $userId]);
+            $_SESSION['auth_password'] = hash('sha256', $pdo->query('SELECT password FROM users WHERE id = ' . (int) $userId)->fetchColumn());
             session_regenerate_id(true);
             header('Location: security.php?done=password');
             exit;

@@ -341,3 +341,8 @@
 .telegram-settings .telegram-open-link[hidden] {
     display: none;
 }
+@media (max-width: 600px) {
+    .reminder-date-time { grid-template-columns: minmax(0, 1fr); }
+    .reminder-editor input, .reminder-editor select, .reminder-editor textarea { min-width: 0; width: 100%; font-size: 16px; }
+    .reminder-page { width: 100%; }
+}

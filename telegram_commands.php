@@ -1,9 +1,10 @@
 <?php
 require_once __DIR__ . '/reminders_backend.php';
+require_once __DIR__ . '/password_recovery.php';
 
 function telegram_command_help(): string
 {
-    return "Study reminder commands:
+    return "Study Helper commands:\n/resetpassword - reset your password through this linked Telegram account
 "
         . "/reminders — future reminders (use /reminders 2 for the next page)
 "
@@ -24,6 +25,7 @@ function telegram_reminder_command(int $uid, string $text): string
     }
     $command = strtolower($match[1]);
     $args = trim($match[2] ?? '');
+    if ($command === 'resetpassword') return issue_telegram_password_reset($uid);
     if ($command === 'help' || $command === 'start') return telegram_command_help();
     if ($command === 'reminders') {
         $page = $args === '' ? 1 : filter_var($args, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 100000]]);

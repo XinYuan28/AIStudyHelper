@@ -139,3 +139,14 @@ function upload_file_limit(): int
     $configured = php_size_bytes((string) ini_get('upload_max_filesize'));
     return $configured > 0 ? min($configured, 100 * 1024 ** 2) : 100 * 1024 ** 2;
 }
+
+// Invalidate authenticated sessions when the account password changes.
+if (!empty($_SESSION['user_id'])) {
+    $check = db()->prepare('SELECT password FROM users WHERE id = ?');
+    $check->execute([(int) $_SESSION['user_id']]);
+    $hash = $check->fetchColumn();
+    if (!$hash || empty($_SESSION['auth_password']) || !hash_equals(hash('sha256', $hash), (string) $_SESSION['auth_password'])) {
+        $_SESSION = [];
+        session_regenerate_id(true);
+    }
+}

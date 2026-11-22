@@ -492,10 +492,11 @@ button.avatar[aria-expanded="true"] {
     }
 }
 
-/* HOME (the page never scrolls; only the notes box does) */
+/* Home uses document scrolling so every feature remains reachable. */
 body.home-active {
-    height: 100vh;
-    overflow: hidden;
+    min-height: 100vh;
+    height: auto;
+    overflow: visible;
     display: flex;
     flex-direction: column;
 }
@@ -2085,4 +2086,43 @@ body:not(.home-custom-active) .home-feature-home,
 body.home-custom-active #featureMessage,
 .lesson.home-custom > .sidebar {
     display: none;
+}
+/* Keep long pages usable at short viewport heights and on touch screens. */
+body.home-active .home { overflow: visible; flex: none; }
+body.home-active .notes-box { height: auto; max-height: none; flex: none; }
+body.home-active .note-list { overflow: visible; flex: none; }
+.sidebar:not(.home-sidebar) { max-height: calc(100dvh - 64px); overflow-y: auto; }
+@media (max-width: 760px) {
+    .lesson { flex-direction: column; }
+    .sidebar:not(.home-sidebar) {
+        position: sticky; top: 0; bottom: auto; align-self: stretch;
+        max-height: none; overflow-x: auto; overflow-y: visible;
+        justify-content: flex-start; flex-wrap: nowrap;
+    }
+    .sidebar:not(.home-sidebar) .side-item { flex: 0 0 82px; min-height: 64px; }
+    .lesson-main { padding: 20px 16px 40px; }
+    .topbar { gap: 8px; padding-left: 12px; padding-right: 12px; }
+    .topbar .crumbs { min-width: 0; }
+    .home { padding-left: 16px; padding-right: 16px; }
+    .home .actions, .panel .actions { flex-wrap: wrap; }
+    .card { min-width: 0; }
+    input, select, textarea { max-width: 100%; }
+    .text-answer input { min-width: 0; flex-basis: 100%; }
+    .md { overflow-wrap: anywhere; }
+}
+@media (max-width: 480px) {
+    .card { padding: 18px; }
+    .topbar .logout { font-size: .8rem; }
+    .range-ticks { font-size: .7rem; }
+}
+
+@media (max-width: 760px) {
+    .topbar { flex-wrap: wrap; }
+    .topbar-left { flex: 1 1 180px; gap: 8px; }
+    .topbar-brand { display: flex; align-items: center; gap: 8px; }
+    #homeSidebarToggle { position: static; transform: none; flex: none; min-width: 40px; min-height: 40px; }
+    .topbar-right { gap: 8px; flex: none; }
+    .topbar .logout { white-space: nowrap; }
+    .crumbs { padding-left: 8px; gap: 6px; }
+    .sidebar.home-sidebar { top: 112px; }
 }

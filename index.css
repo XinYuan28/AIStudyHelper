@@ -667,3 +667,12 @@ h4 {
     display: block;
     text-align: center;
 }
+@media (max-width: 480px) {
+    .nav { flex-wrap: wrap; gap: 12px; }
+    .nav-links { flex-wrap: wrap; }
+    .hero { padding-left: 16px; padding-right: 16px; }
+    .flip { min-width: 0; width: 100%; }
+    .signup { padding: 24px 20px; }
+    .footer-inner { grid-template-columns: minmax(0, 1fr); }
+    input { font-size: 16px; }
+}
