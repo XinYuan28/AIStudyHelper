@@ -25,10 +25,6 @@
 .trash-page a {
     color: var(--primary-dark);
 }
-.trash-header > a {
-    padding-top: 10px;
-    font-size: .9rem;
-}
 .trash-toolbar {
     display: flex;
     flex-wrap: wrap;

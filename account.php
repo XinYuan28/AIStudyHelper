@@ -92,6 +92,7 @@ if (!$user) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>My account</title>
+<link rel="icon" type="image/png" href="Images/AISNH_Cat coloredlogo(S).png">
 <style>
   body{font-family:system-ui,sans-serif;background:#f4f5f7;display:flex;justify-content:center;padding:32px 16px}
   .wrap{width:100%;max-width:480px}

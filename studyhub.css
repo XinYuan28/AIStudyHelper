@@ -152,6 +152,7 @@ h4 {
     color: var(--muted);
 }
 
+.crumbs a:hover,
 .crumbs button:hover {
     color: var(--primary);
 }
@@ -968,7 +969,8 @@ body.home-active {
     color: var(--primary);
 }
 
-.side-item.active {
+.side-item.active,
+.side-item[aria-current="page"] {
     color: var(--primary);
     background: var(--tint);
 }
@@ -1817,24 +1819,29 @@ body.home-active {
     height: auto;
     border-radius: 8px;
 }
+
 .tts-selection-help {
     margin: 0 0 12px;
     color: var(--muted);
     font-size: .85rem;
     line-height: 1.6;
 }
+
 .tts-word {
     cursor: pointer;
     touch-action: manipulation;
     border-radius: 3px;
 }
+
 .tts-word:hover {
     background: var(--tint);
 }
+
 .tts-word.selected {
     background: var(--primary);
     color: var(--on-primary);
 }
+
 .tts-word:focus-visible {
     outline: 2px solid var(--primary);
     outline-offset: 2px;
@@ -1844,6 +1851,7 @@ body.home-active {
 .tts-controls {
     padding-bottom: 2.6rem;
 }
+
 .tts-controls .btn.icon-only[aria-label]::before {
     top: calc(100% + 10px);
     bottom: auto;
@@ -1852,10 +1860,12 @@ body.home-active {
     border: 1px solid var(--line);
     box-shadow: var(--shadow);
 }
+
 /* Notes and TTS share the same theme-aware action labels. */
 #panel-notes .actions {
     padding-bottom: 2.6rem;
 }
+
 #panel-notes .actions .btn.icon-only[aria-label]::before {
     top: calc(100% + 10px);
     bottom: auto;
@@ -1864,6 +1874,7 @@ body.home-active {
     border: 1px solid var(--line);
     box-shadow: var(--shadow);
 }
+
 .dual-question-counts {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1873,9 +1884,11 @@ body.home-active {
     border-radius: 12px;
     background: var(--surface);
 }
+
 .dual-question-counts[hidden] {
     display: none;
 }
+
 .dual-question-counts input {
     width: 100%;
     padding: 10px;
@@ -1885,11 +1898,13 @@ body.home-active {
     border-radius: 8px;
     font: inherit;
 }
+
 #dualCountHint {
     grid-column: 1 / -1;
     color: var(--muted);
     font-size: .85rem;
 }
+
 @media (max-width: 480px) {
     .dual-question-counts {
         grid-template-columns: minmax(0, 1fr);
@@ -1899,9 +1914,175 @@ body.home-active {
 .quiz-top {
     flex-wrap: wrap;
 }
+
 .quiz-top .bar {
     min-width: 80px;
 }
+
 .quiz-section {
     flex-shrink: 0;
+}
+
+/* SIDEBAR (note page = fixed, home page = same look but can be hidden) */
+button.side-item {
+    width: 100%;
+}
+
+.sidebar .side-item {
+    flex: none;
+}
+
+.sidebar .feature-message {
+    padding: .5rem .3rem;
+    font-size: .72rem;
+    line-height: 1.4;
+    text-align: center;
+    color: var(--muted);
+}
+
+.sidebar .feature-message:empty {
+    display: none;
+}
+
+/* Home sidebar: sits under the top bar, the page content makes room for it while it is open */
+.sidebar.home-sidebar {
+    position: fixed;
+    top: 64px;
+    left: 0;
+    bottom: 0;
+    align-self: auto;
+    z-index: 9;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: var(--surface);
+}
+
+body.home-active:not(.sb-open) .home-sidebar {
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    body.home-active.sb-motion .home-sidebar {
+        transition: opacity 180ms ease, visibility 0s;
+    }
+
+    body.home-active.sb-motion:not(.sb-open) .home-sidebar {
+        transition-delay: 0s, 180ms;
+    }
+
+    body.home-active.sb-motion .home-sidebar .side-item {
+        transition: background .2s, color .2s, opacity 180ms ease, transform 180ms ease;
+    }
+
+    body.home-active:not(.sb-open) .home-sidebar .side-item {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+
+    body.home-active.sb-open .home-sidebar .side-item {
+        transition-delay: 0s, 0s, var(--reveal-delay, 0ms), var(--reveal-delay, 0ms);
+    }
+
+    .home-sidebar .side-item:nth-child(2) { --reveal-delay: 35ms; }
+    .home-sidebar .side-item:nth-child(3) { --reveal-delay: 70ms; }
+    .home-sidebar .side-item:nth-child(4) { --reveal-delay: 105ms; }
+    .home-sidebar .side-item:nth-child(5) { --reveal-delay: 140ms; }
+    .home-sidebar .side-item:nth-child(6) { --reveal-delay: 175ms; }
+    .home-sidebar .side-item:nth-child(7) { --reveal-delay: 210ms; }
+
+    body.home-active.sb-motion {
+        transition: padding-left 220ms ease;
+    }
+
+    body.home-active.sb-motion .topbar {
+        transition: margin-left 220ms ease;
+    }
+}
+
+body.home-active.sb-open {
+    padding-left: 112px;
+}
+
+/* the top bar keeps its full width even while the page is pushed right */
+body.home-active.sb-open .topbar {
+    margin-left: -112px;
+}
+
+/* the menu button and home sidebar only exist on the home page, never inside a note */
+body:not(.home-active) .home-sidebar,
+body:not(.home-active) #homeSidebarToggle {
+    display: none;
+}
+
+.topbar-brand {
+    position: relative;
+    flex: none;
+}
+
+#homeSidebarToggle {
+    position: absolute;
+    top: calc(100% + 1.7rem);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--surface);
+}
+
+#homeSidebarToggle::before {
+    display: none;
+}
+
+@media (max-width: 760px) {
+    body.home-active.sb-open {
+        padding-left: 0;
+    }
+
+    body.home-active.sb-open .topbar {
+        margin-left: 0;
+    }
+
+    /* the bottom-bar layout of the note page does not apply here: it floats over the page instead */
+    .sidebar.home-sidebar {
+        width: 112px;
+        flex-direction: column;
+        justify-content: flex-start;
+        padding: 1rem .6rem;
+        border-top: 0;
+        border-right: 1px solid var(--line);
+        box-shadow: var(--shadow);
+    }
+
+    .sidebar.home-sidebar .side-item {
+        flex: none;
+        font-size: .8rem;
+    }
+}
+
+/* CUSTOMISE QUIZ opened from the home page: the extra "which saved note?" column */
+.field select {
+    width: 100%;
+    padding: .8rem 1.1rem;
+    font-family: var(--font-body);
+    font-size: 1rem;
+    color: var(--ink);
+    background: var(--bg);
+    border: 1.5px solid var(--line);
+    border-bottom-width: 4px;
+    border-radius: 14px;
+}
+
+.field select:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.field select:disabled {
+    opacity: .7;
+}
+
+body:not(.home-custom-active) .home-feature-home,
+body.home-custom-active #featureMessage,
+.lesson.home-custom > .sidebar {
+    display: none;
 }

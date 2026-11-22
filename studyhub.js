@@ -84,6 +84,9 @@ let speechPayload = ''; // same as speechText, but each table is wrapped in [[T0
 let speechTables = [];  // the raw Markdown tables, sent to Gemini for narration
 let currentQuestions = [];
 let pendingPanel = ''; // set from ?panel= in the address, e.g. coming back from the Game Quiz page
+let homeCustom = false; // true when Customise Quiz was opened from the HOME page (no note open yet): the "which note?" column is shown
+let customNoteId = 0; // the saved note picked in that column
+let customNotesText = ''; // its generated notes (kept so the note opens normally once the quiz starts)
 let deleteMode = false; // true after "Delete" is chosen in a note's menu: checkboxes appear on every note
 const selectedIds = new Set(); // ids of the notes ticked for deletion
 
@@ -690,12 +693,13 @@ async function createLesson(title, names, action, sizes, files) {
 const panels = ['start', 'notes', 'game', 'custom', 'tts'];
 
 // studyhub.php?note=5 opens note 5 straight away (that is the link the "open" button uses, in a new tab)
-function setNoteUrl(id) {
+function setNoteUrl(id, panel = '') {
     try {
         const u = new URL(location.href);
         if (id) u.searchParams.set('note', id);
         else u.searchParams.delete('note');
-        u.searchParams.delete('panel');
+        if (panel) u.searchParams.set('panel', panel);
+        else u.searchParams.delete('panel');
         history.replaceState(null, '', u);
     } catch (e) {}
 }
@@ -703,6 +707,7 @@ function setNoteUrl(id) {
 function showHome() {
     stopSpeech();
     current = null;
+    leaveHomeCustom();
     deleteMode = false;
     selectedIds.clear();
     $('deleteBar').hidden = true;
@@ -720,8 +725,11 @@ function showHome() {
 function openLesson(id, fresh) {
     current = lessons.find(l => l.id === id);
     if (!current) return;
+    leaveHomeCustom(); // opened inside a note: Customise Quiz has no "which note?" column
     setNoteUrl(current.id);
-    $('sideGame').href = 'play_menu.php?note=' + encodeURIComponent(current.id); // so the Game Quiz page can bring you back to this note
+    const noteQuery = '?note=' + encodeURIComponent(current.id);
+    $('sideGame').href = 'play_menu.php' + noteQuery;
+    $('sideReminders').href = 'reminders.php' + noteQuery;
     speechText = '';
     speechDisplay = '';
     speechPayload = '';
@@ -786,9 +794,82 @@ function showPanel(name) {
     if (name === 'game') loadQuizHistory();
 }
 
+/* CUSTOMISE QUIZ FROM THE HOME PAGE
+   Opened from the home sidebar there is no note yet, so the form gets an extra first column: "which saved note?".
+   Opened inside a note (note sidebar) that column stays hidden and the form is exactly as before. */
+function fillCustomNotes() {
+    const sel = $('customNote');
+    const keep = customNoteId;
+    sel.replaceChildren(el('option', '', lessons.length ? 'Choose a note…' : 'You have no saved notes yet'));
+    sel.options[0].value = '';
+    lessons.slice().sort((a, b) => b.updated - a.updated).forEach(l => {
+        const o = el('option', '', l.title + (l.files && l.files.length > 1 ? ' (' + l.files.length + ' files)' : ''));
+        o.value = String(l.id);
+        sel.appendChild(o);
+    });
+    sel.value = keep && lessons.some(l => l.id === keep) ? String(keep) : '';
+    sel.disabled = !lessons.length;
+}
+
+function openHomeCustom() {
+    stopSpeech();
+    current = null;
+    homeCustom = true;
+    customNoteId = 0;
+    customNotesText = '';
+    currentQuestions = [];
+    notesText = '';
+    $('customNoteField').hidden = false;
+    $('viewLesson').classList.add('home-custom');
+    document.body.classList.add('home-active', 'home-custom-active');
+    setNoteUrl(0, 'custom');
+    $('crumbTitle').textContent = 'Customise Quiz';
+    $('crumbs').hidden = false;
+    $('viewHome').hidden = true;
+    $('viewLesson').hidden = false;
+    fillCustomNotes();
+    if (listState !== 'ready') refreshList().then(fillCustomNotes);
+    showPanel('custom');
+}
+
+// back to the normal (note) version of the form
+function leaveHomeCustom() {
+    homeCustom = false;
+    document.body.classList.remove('home-custom-active');
+    customNoteId = 0;
+    customNotesText = '';
+    $('customNoteField').hidden = true;
+    $('viewLesson').classList.remove('home-custom');
+    $('customStart').disabled = false;
+}
+
+$('customNote').addEventListener('change', async () => {
+    const id = Number($('customNote').value) || 0;
+    customNoteId = id;
+    customNotesText = '';
+    currentQuestions = [];
+    updateQuizCount();
+    if (!id) return;
+    const start = $('customStart');
+    start.disabled = true;
+    try {
+        const r = await apiCall('get', { id: id });
+        if (customNoteId !== id) return; // another note was picked while this one was loading
+        currentQuestions = normaliseQuestions(r.questions);
+        customNotesText = r.content || '';
+        updateQuizCount();
+    } catch (err) {
+        if (customNoteId !== id) return;
+        $('customMsg').textContent = err.message;
+        $('customMsg').classList.add('warn');
+        $('customMsg').hidden = false;
+    }
+    if (customNoteId === id) start.disabled = false;
+});
+
 $('crumbHome').addEventListener('click', showHome);
 $('logoLink').addEventListener('click', e => {
-    if (current) {
+    if (current || homeCustom) {
         e.preventDefault();
         showHome();
     }
@@ -798,6 +879,13 @@ $('logoLink').addEventListener('click', e => {
 document.querySelectorAll('.side-item[data-panel]').forEach(b => b.addEventListener('click', event => {
     event.preventDefault();
     const p = b.dataset.panel;
+    if (!current && p === 'custom') {
+        // from the home page: open Customise Quiz with the "which saved note?" column
+        const fm = $('featureMessage');
+        if (fm) fm.textContent = '';
+        openHomeCustom();
+        return;
+    }
     if (!current) {
         pendingPanel = p;
         $('featureMessage').textContent = 'Open your study materials to use this feature.';
@@ -1682,6 +1770,12 @@ function updateQuizCount() {
     $('numQuestions').dispatchEvent(new Event('input'));
     const n = currentQuestions.length;
     const m = $('customMsg');
+    if (homeCustom && !customNoteId) {
+        m.textContent = lessons.length ? 'Choose a saved note first. Then you can set up the quiz.' : 'Upload some study materials first, then you can make a quiz from them.';
+        m.classList.remove('warn');
+        m.hidden = false;
+        return;
+    }
     if (!n) {
         m.textContent = 'No quiz questions were found for this note yet, so a quiz cannot start.';
         m.classList.add('warn');
@@ -1738,12 +1832,24 @@ $('customForm').addEventListener('submit', e => {
         mcq: Number(f.get('mcq_count')),
         written: Number(f.get('written_count'))
     };
+    if (homeCustom && !customNoteId) {
+        updateQuizCount();
+        $('customNote').focus();
+        return;
+    }
     if (!currentQuestions.length) {
         updateQuizCount();
         return;
     }
     try {
         const questions = customiseQuizQuestions(currentQuestions, settings);
+        if (homeCustom) {
+            // the note is now chosen: open it like a normal note (so results, files and "notes from my mistakes" work), then start the quiz
+            notesText = customNotesText;
+            const picked = customNoteId;
+            openLesson(picked, true);
+            if (!current) return;
+        }
         startQuiz(questions, { difficulty: settings.difficulty, type: settings.type, sections: settings.sections });
     } catch (error) {
         $('customMsg').textContent = error.message;
@@ -2070,10 +2176,13 @@ if (deepNote) {
     });
 } else {
     const requestedFeature = new URLSearchParams(location.search).get('panel');
-    if (['game', 'custom', 'tts'].includes(requestedFeature)) {
+    if (requestedFeature === 'custom') {
+        // e.g. the "Customise Quiz" link in another page's sidebar: open it with the "which saved note?" column
+        openHomeCustom();
+    } else if (['game', 'tts'].includes(requestedFeature)) {
         pendingPanel = requestedFeature;
         $('featureMessage').textContent = 'Open your study materials to use this feature.';
     }
     renderList(); // shows "Loading your notes…"
-    refreshList(); // then fills the list from the notes table
+    if (!homeCustom) refreshList(); // openHomeCustom already loads notes for its selector
 }

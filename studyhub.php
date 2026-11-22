@@ -25,10 +25,12 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
                 document.documentElement.dataset.theme = savedTheme;
             }
         </script>
+        <script src="studyhub_sidebar.js?v=<?= filemtime(__DIR__ . '/studyhub_sidebar.js') ?>" defer></script>
     </head>
 
     <body class="home-active">
-<?php require __DIR__ . '/feature_sidebar.php'; ?>
+        <!-- HOME SIDEBAR (same design as the note page sidebar, but it can be hidden with the button in the top bar) -->
+        <?php require __DIR__ . '/studyhub_sidebar.php'; ?>
 
         <!-- DELETE CONFIRM -->
         <div class="modal" id="confirmModal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" hidden>
@@ -105,7 +107,10 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
         <header class="topbar">
 
             <div class="topbar-left">
-                <a href="studyhub.php" id="logoLink"><img src="Images/AISNH_Cat coloredlogo(S).png" alt="AI Study Note Helper" class="logo"></a>
+                <div class="topbar-brand">
+                    <a href="studyhub.php" id="logoLink"><img src="Images/AISNH_Cat coloredlogo(S).png" alt="AI Study Note Helper" class="logo"></a>
+                    <?php require __DIR__ . '/studyhub_sidebar_toggle.php'; ?>
+                </div>
                 <div class="crumbs" id="crumbs" hidden>
                     <button type="button" id="crumbHome">Home</button>
                     <span>&rsaquo;</span>
@@ -186,8 +191,33 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
         <!-- LESSON -->
         <div class="lesson view" id="viewLesson" hidden>
 
-            <!-- SIDEBAR -->
-
+            <!-- SIDEBAR (note page: always visible, cannot be hidden) -->
+            <nav class="sidebar" aria-label="Study features">
+                <button type="button" class="side-item" data-panel="notes">
+                    <span class="side-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="4" y="3" width="16" height="18" rx="3" /><path d="M8 8h8M8 12h8M8 16h5" /></svg></span>
+                    Notes
+                </button>
+                <button type="button" class="side-item" data-panel="game">
+                    <span class="side-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="5" y="4" width="14" height="17" rx="2.5" /><path d="M9.5 4V3h5v1M9 13l2.2 2.2L15.5 11" /></svg></span>
+                    Practice quiz
+                </button>
+                <a class="side-item" href="play_menu.php" id="sideGame">
+                    <span class="side-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="2.5" y="7" width="19" height="11" rx="5" /><path d="M7 10v5M4.5 12.5h5M15.5 11h.01M18 14h.01" /></svg></span>
+                    Game Quiz
+                </a>
+                <button type="button" class="side-item" data-panel="custom">
+                    <span class="side-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 7h10M18 7h2M4 17h2M10 17h10" /><circle cx="16" cy="7" r="2" /><circle cx="8" cy="17" r="2" /></svg></span>
+                    Customise Quiz
+                </button>
+                <button type="button" class="side-item" data-panel="tts">
+                    <span class="side-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 10v4h4l5 4V6L8 10H4z" /><path d="M16.5 9a4 4 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11" /></svg></span>
+                    Text-to-Speech
+                </button>
+                <a class="side-item" href="reminders.php" id="sideReminders">
+                    <span class="side-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z" /><path d="M10 20.5a2 2 0 0 0 4 0" /></svg></span>
+                    Study reminders
+                </a>
+            </nav>
 
             <section class="lesson-main">
 
@@ -234,7 +264,7 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
 
                 <!-- GAME QUIZ -->
                 <div class="panel" id="panel-game" hidden>
-                    <h2 class="panel-title">Game Quiz</h2>
+                    <h2 class="panel-title">Practice Quiz</h2>
                     <p class="lead">Answer to earn points and build a streak.</p>
                     <div id="quizArea"></div>
                     <details class="card"><summary>Recent quiz results</summary><ul id="quizHistory" aria-live="polite"></ul></details>
@@ -245,6 +275,13 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
                     <h2 class="panel-title">Customise Quiz</h2>
                     <p class="lead">Set up a quiz the way you want it.</p>
                     <form class="card form-grid" id="customForm">
+                        <!-- only shown when Customise Quiz is opened from the HOME page; inside a note it stays hidden (studyhub.js) -->
+                        <div class="field" id="customNoteField" hidden>
+                            <label for="customNote">Which saved note do you want to make a quiz from?</label>
+                            <select id="customNote" name="note_id">
+                                <option value="">Choose a note…</option>
+                            </select>
+                        </div>
                         <div class="field">
                             <label for="numQuestions">
                                 Number of questions <span class="val" id="numValue">10</span>
@@ -289,7 +326,7 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
                             <input type="range" class="slider" id="numSections" name="sections" min="1" max="5" step="1" value="1">
                             <div class="range-ticks" aria-hidden="true"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></div>
                         </div>
-                        <div><button type="submit" class="btn">Start quiz</button></div>
+                        <div><button type="submit" class="btn" id="customStart">Start quiz</button></div>
                     </form>
                 </div>
 

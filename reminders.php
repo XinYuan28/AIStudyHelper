@@ -1,6 +1,15 @@
 <?php
 require 'auth.php';
 require_login();
+$noteId = (int) ($_GET['note'] ?? 0);
+$fromNote = $noteId > 0;
+$showSidebarToggle = !$fromNote;
+$breadcrumbTitle = 'Study Reminders';
+if ($fromNote) {
+    $noteTitle = db()->prepare('SELECT title FROM notes WHERE id = ? AND user_id = ? AND deleted_at IS NULL');
+    $noteTitle->execute([$noteId, (int) $_SESSION['user_id']]);
+    $breadcrumbTitle = $noteTitle->fetchColumn() ?: $breadcrumbTitle;
+}
 ?>
 <!doctype html>
 <html lang="en">
@@ -8,17 +17,28 @@ require_login();
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Study reminders | Study Helper</title>
-    <link rel="stylesheet" href="studyhub.css">
+    <link rel="icon" type="image/png" href="Images/AISNH_Cat coloredlogo(S).png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="studyhub.css?v=<?= filemtime(__DIR__ . '/studyhub.css') ?>">
     <link rel="stylesheet" href="reminders.css?v=<?= filemtime(__DIR__ . '/reminders.css') ?>">
     <script>
         const theme = localStorage.getItem('theme');
         if (theme === 'dark' || theme === 'yellow') document.documentElement.dataset.theme = theme;
     </script>
+    <?php if (!$fromNote): ?>
+        <script src="studyhub_sidebar.js?v=<?= filemtime(__DIR__ . '/studyhub_sidebar.js') ?>" defer></script>
+    <?php endif; ?>
+    <script src="studyhub_feature_header.js?v=<?= filemtime(__DIR__ . '/studyhub_feature_header.js') ?>" defer></script>
 </head>
-<body>
-<?php require __DIR__ . '/feature_sidebar.php'; ?>
-<main class="reminder-page">
-    <header class="reminder-header"><span id="todayLabel"></span><a href="studyhub.php">Study Hub</a></header>
+<body<?= $fromNote ? '' : ' class="home-active"' ?>>
+<?php if (!$fromNote) require __DIR__ . '/studyhub_sidebar.php'; ?>
+<?php require __DIR__ . '/studyhub_feature_header.php'; ?>
+<?php if ($fromNote): ?>
+<div class="lesson">
+    <?php require __DIR__ . '/studyhub_sidebar.php'; ?>
+<?php endif; ?>
+<main class="reminder-page<?= $fromNote ? ' lesson-main' : '' ?>">
+    <header class="reminder-header"><span id="todayLabel"></span></header>
     <div class="reminder-layout">
         <section class="calendar-pane" aria-label="Study calendar">
             <div class="calendar-toolbar">
@@ -80,6 +100,9 @@ require_login();
         </section>
     </div>
 </main>
+<?php if ($fromNote): ?>
+</div>
+<?php endif; ?>
 <script>window.STUDYHUB_CSRF = <?= json_encode(csrf_token()) ?>;</script>
 <script src="reminders.js?v=<?= filemtime(__DIR__ . '/reminders.js') ?>"></script>
 </body>
