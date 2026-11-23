@@ -342,6 +342,8 @@ button.avatar[aria-expanded="true"] {
 .modal-box {
     width: 100%;
     max-width: 400px;
+    max-height: 100%;
+    overflow-y: auto;
     padding: 1.6rem;
     background: var(--card);
     border: 1.5px solid var(--line);
@@ -611,11 +613,73 @@ body.home-active {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    flex-wrap: wrap;
+    gap: .55rem;
     margin-bottom: .8rem;
 }
 
 .notes-head h2 {
     font-size: 1.25rem;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.notes-heading,
+.notes-controls,
+.note-meta {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    min-width: 0;
+}
+
+.notes-controls {
+    flex-wrap: wrap;
+}
+
+.folder-back {
+    flex: none;
+}
+
+.notes-title {
+    min-width: 0;
+}
+
+.folder-breadcrumb {
+    display: block;
+    color: var(--muted);
+    font-size: .8rem;
+}
+
+.notes-controls svg {
+    display: block;
+    width: 16px;
+    height: 16px;
+}
+
+.note-meta small {
+    flex: none;
+}
+
+.note-meta .folder-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: .25rem;
+    flex: 0 1 auto;
+    min-width: 0;
+    background: var(--tint);
+    color: var(--primary);
+}
+
+.folder-tag svg {
+    flex: none;
+    width: .8rem;
+    height: .8rem;
+}
+
+.folder-tag span {
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .note-list {
@@ -656,6 +720,38 @@ body.home-active {
 .note-row .ico svg {
     width: 22px;
     height: 22px;
+}
+
+.folder-row {
+    color: var(--ink);
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.folder-row:hover,
+.folder-row:focus-visible {
+    border-color: var(--primary);
+}
+
+.folder-row-name {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 1rem;
+}
+
+.folder-chevron {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 2rem;
+    height: 2rem;
+    border: 1px solid currentColor;
+    border-radius: 8px;
+    color: var(--primary);
+    font-size: 1.4rem;
 }
 
 .note-info {
@@ -709,6 +805,26 @@ body.home-active {
 .name-input:focus {
     outline: none;
     border-color: var(--primary);
+}
+
+.folder-fields {
+    margin-top: .75rem;
+    text-align: left;
+}
+
+.folder-fields label {
+    display: block;
+    color: var(--ink);
+    font-weight: 600;
+}
+
+.folder-fields label small {
+    color: var(--muted);
+    font-weight: 400;
+}
+
+.folder-fields .name-input {
+    margin: .35rem 0 .8rem;
 }
 
 .note-info small {
@@ -792,6 +908,8 @@ body.home-active {
 
 .note-menu-item svg {
     flex: none;
+    width: 20px;
+    height: 20px;
 }
 
 .note-menu-item.danger,
@@ -1024,7 +1142,7 @@ body.home-active {
 
 .choices {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
     gap: 1rem;
     max-width: 620px;
     margin: 0 auto;
@@ -1418,8 +1536,8 @@ body.home-active {
 }
 
 .text-answer input {
-    flex: 1;
-    min-width: 200px;
+    flex: 1 1 200px;
+    min-width: 0;
     padding: .8rem 1.1rem;
     font-family: var(--font-body);
     font-size: 1rem;
@@ -2125,4 +2243,87 @@ body.home-active .note-list { overflow: visible; flex: none; }
     .topbar .logout { white-space: nowrap; }
     .crumbs { padding-left: 8px; gap: 6px; }
     .sidebar.home-sidebar { top: 112px; }
+}
+
+.md {
+    overflow-wrap: anywhere;
+}
+
+.md img {
+    max-width: 100%;
+    height: auto;
+}
+
+.md pre {
+    overflow-x: auto;
+}
+
+@media (max-width: 760px), (max-height: 680px) {
+    body.home-active {
+        height: auto;
+        min-height: 100dvh;
+        overflow: visible;
+    }
+
+    .home {
+        flex: none;
+        overflow: visible;
+    }
+
+    .notes-box {
+        height: auto;
+        max-height: none;
+    }
+
+    .note-list {
+        flex: auto;
+        overflow: visible;
+    }
+}
+
+@media (max-width: 760px) {
+    .lesson > .sidebar {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 86px), 1fr));
+        max-height: 40dvh;
+        overflow-y: auto;
+    }
+
+    .sidebar .feature-message {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 480px) {
+    .topbar,
+    .topbar-left,
+    .topbar-right {
+        gap: .45rem;
+    }
+
+    .topbar .logo {
+        height: 36px;
+    }
+
+    .topbar .logout {
+        white-space: nowrap;
+    }
+
+    .crumbs {
+        gap: .35rem;
+        padding-left: .45rem;
+    }
+
+    .home {
+        padding-inline: .8rem;
+    }
+
+    .notes-box {
+        padding-inline: .75rem;
+    }
+
+    .card {
+        padding-inline: .85rem;
+        overflow-wrap: anywhere;
+    }
 }

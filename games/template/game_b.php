@@ -63,6 +63,14 @@ body {
     margin-bottom: 1.4rem;
 }
 
+.game-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    align-items: center;
+    min-width: 0;
+}
+
 .logo {
     font-size: 1.6rem;
     font-weight: 700;
@@ -74,6 +82,7 @@ body {
 
 .tabs {
     display: flex;
+    flex-wrap: wrap;
     gap: 0.5rem;
     background: var(--surface);
     padding: 0.25rem;
@@ -176,7 +185,8 @@ body {
     flex-wrap: wrap;
 }
 #ti {
-    flex: 1;
+    flex: 1 1 12rem;
+    min-width: 0;
     padding: 0.7rem 1rem;
     font-size: 0.9rem;
     font-family: var(--mono);
@@ -314,6 +324,8 @@ footer {
 }
 .lb-details {
     flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
     text-align: right;
     color: var(--soft);
 }
@@ -342,14 +354,17 @@ footer {
     background: rgba(0,0,0,0.5);
     backdrop-filter: blur(4px);
     display: flex;
-    justify-content: center;
+    flex-direction: column;
     align-items: center;
+    overflow-y: auto;
+    padding: 1rem;
     z-index: 1000;
 }
 .start-card {
     background: var(--card);
     max-width: 480px;
-    width: 90%;
+    width: 100%;
+    margin-block: auto;
     border-radius: 2rem;
     padding: 1.8rem;
     text-align: center;
@@ -383,10 +398,8 @@ footer {
 }
 
 .back-to-play-menu {
-    position: fixed;
-    top: 16px;
-    left: 16px;
-    z-index: 10;
+    align-self: flex-start;
+    margin-bottom: .75rem;
     padding: 8px 12px;
     background: #fff;
     color: #222;
@@ -398,13 +411,41 @@ footer {
 .back-to-play-menu:focus-visible {
     text-decoration: underline;
 }
+
+@media (max-width: 640px) {
+    body {
+        padding: .75rem;
+    }
+
+    .inner,
+    .start-card {
+        padding: .9rem;
+    }
+
+    .sgrid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .rg {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .tab {
+        padding-inline: .55rem;
+    }
+
+    #ti {
+        flex-basis: 100%;
+        font-size: 1rem;
+    }
+}
 </style>
 </head>
 <body>
 <div class="app"><div class="inner">
 <div class="hrow">
   <span class="logo">⌨️ KeyForge</span>
-  <div style="display: flex; gap: 0.5rem; align-items: center;">
+  <div class="game-controls">
     <div class="tabs">
       <button class="tab active" data-mode="sentences">Sentences</button>
       <button class="tab" data-mode="paragraph">Paragraph</button>

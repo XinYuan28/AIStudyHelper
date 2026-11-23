@@ -1,8 +1,10 @@
 <?php
 /* JSON API used by studyhub.js.
-   GET  api.php?action=list                      -> the user's notes (with file names)
+   GET  api.php?action=list                      -> the user's notes (with file names) and folders
    GET  api.php?action=get&id=N                  -> one note's saved content
-    POST api.php?action=create                    -> title, uploads[] (real files), 1-20 files, all together up to 100 MB
+   POST api.php?action=create                    -> title, uploads[] (1-20 files, up to 100 MB), [folder_id or folder_name]
+   POST api.php?action=create_folder             -> folder_name
+   POST api.php?action=move_note                 -> id, folder_id (empty for Unsorted)
    POST api.php?action=rename                    -> id, title
    POST api.php?action=delete                    -> id            (soft delete: sets notes.deleted_at)
    POST api.php?action=save_notes                -> id, content, mode, [as_new, title]
@@ -57,6 +59,7 @@ if ($uid < 1) {
 
 $action = $_GET['action'] ?? '';
 $writes = ['create', 'rename', 'delete', 'save_notes', 'save_quiz',
+    'create_folder', 'move_note',
     'create_reminder', 'edit_reminder', 'cancel_reminder', 'delete_reminder',
     'connect_telegram', 'disconnect_telegram', 'restore_note', 'permanently_delete_note'];
 if ($action === 'create' && empty($_FILES) && empty($_POST)
@@ -81,6 +84,37 @@ const MAX_CONTENT = 200000; // characters of notes text
 function clean_title(string $t): string
 {
     return mb_substr(trim($t), 0, 255);
+}
+
+function folder_name(): string
+{
+    $value = $_POST['folder_name'] ?? null;
+    $name = is_string($value) ? trim($value) : '';
+    if ($name === '' || mb_strlen($name) > 100) {
+        fail(400, 'Enter a folder name of up to 100 characters.');
+    }
+    return $name;
+}
+
+function create_folder(PDO $pdo, int $uid, string $name): int
+{
+    $st = $pdo->prepare('INSERT INTO folders (user_id, name) VALUES (?, ?)');
+    $st->execute([$uid, $name]);
+    return (int) $pdo->lastInsertId();
+}
+
+function selected_folder(int $uid): ?int
+{
+    if (($_POST['folder_id'] ?? '') === '') {
+        return null;
+    }
+    $id = int_in('folder_id', 1, PHP_INT_MAX);
+    $st = db()->prepare('SELECT id FROM folders WHERE id = ? AND user_id = ?');
+    $st->execute([$id, $uid]);
+    if (!$st->fetchColumn()) {
+        fail(404, 'That folder could not be found.');
+    }
+    return $id;
 }
 
 function int_in(string $key, int $min, int $max): int
@@ -316,7 +350,7 @@ switch ($action) {
 
     case 'list':
         $st = db()->prepare(
-            'SELECT id, title, UNIX_TIMESTAMP(updated_at) AS ts
+            'SELECT id, title, folder_id, UNIX_TIMESTAMP(updated_at) AS ts
                FROM notes
               WHERE user_id = ? AND deleted_at IS NULL
               ORDER BY updated_at DESC, id DESC'
@@ -336,11 +370,50 @@ switch ($action) {
         }
         foreach ($notes as &$n) {
             $n['id']    = (int) $n['id'];
+            $n['folder_id'] = $n['folder_id'] === null ? null : (int) $n['folder_id'];
             $n['ts']    = (int) $n['ts'];
             $n['files'] = $byNote[$n['id']] ?? [];
         }
         unset($n);
-        out(['notes' => $notes]);
+        $st = db()->prepare(
+            'SELECT f.id, f.name, COUNT(n.id) AS note_count,
+                    UNIX_TIMESTAMP(GREATEST(f.created_at, COALESCE(MAX(n.updated_at), f.created_at))) AS ts
+               FROM folders f
+               LEFT JOIN notes n ON n.folder_id = f.id AND n.user_id = f.user_id AND n.deleted_at IS NULL
+              WHERE f.user_id = ?
+              GROUP BY f.id, f.name, f.created_at
+              ORDER BY ts DESC, f.id DESC'
+        );
+        $st->execute([$uid]);
+        $folders = array_map(static fn (array $f): array => [
+            'id' => (int) $f['id'],
+            'name' => $f['name'],
+            'note_count' => (int) $f['note_count'],
+            'ts' => (int) $f['ts'],
+        ], $st->fetchAll());
+        out(['notes' => $notes, 'folders' => $folders]);
+
+    case 'create_folder':
+        $name = folder_name();
+        try {
+            $id = create_folder(db(), $uid, $name);
+        } catch (PDOException $e) {
+            if ((int) ($e->errorInfo[1] ?? 0) === 1062) {
+                fail(409, 'A folder with that name already exists.');
+            }
+            throw $e;
+        }
+        out(['id' => $id]);
+
+    case 'move_note':
+        $id = int_in('id', 1, PHP_INT_MAX);
+        $folderId = selected_folder($uid);
+        $st = db()->prepare('UPDATE notes SET folder_id = ? WHERE id = ? AND user_id = ? AND deleted_at IS NULL');
+        $st->execute([$folderId, $id, $uid]);
+        if (!$st->rowCount() && !own_note($id, $uid)) {
+            fail(404, 'That note could not be found.');
+        }
+        out();
 
     case 'quiz_history':
         $st = db()->prepare(
@@ -368,6 +441,11 @@ switch ($action) {
         ]);
 
     case 'create':
+        $folderId = selected_folder($uid);
+        $folderName = array_key_exists('folder_name', $_POST) ? folder_name() : null;
+        if ($folderId !== null && $folderName !== null) {
+            fail(400, 'Choose one destination for your notes.');
+        }
         $uploads = $_FILES['uploads'] ?? null;
         if (!$uploads || !is_array($uploads['name'] ?? null)) {
             fail(400, 'Please choose at least one study file.');
@@ -445,7 +523,11 @@ switch ($action) {
         $pdo = db();
         $pdo->beginTransaction();
         try {
-            $pdo->prepare("INSERT INTO notes (user_id, title, content, mode) VALUES (?, ?, ?, 'general')")->execute([$uid, $title, $result['notes']]);
+            if ($folderName !== null) {
+                $folderId = create_folder($pdo, $uid, $folderName);
+            }
+            $pdo->prepare("INSERT INTO notes (user_id, title, content, mode, folder_id) VALUES (?, ?, ?, 'general', ?)")
+                ->execute([$uid, $title, $result['notes'], $folderId]);
             $noteId = (int) $pdo->lastInsertId();
             $ins = $pdo->prepare('INSERT INTO note_files (note_id, original_name, size_bytes) VALUES (?, ?, ?)');
             foreach ($clean as [$name, $size]) {
@@ -458,9 +540,12 @@ switch ($action) {
             if ($pdo->inTransaction()) {
                 $pdo->rollBack();
             }
+            if ($e instanceof PDOException && (int) ($e->errorInfo[1] ?? 0) === 1062 && $folderName !== null) {
+                fail(409, 'A folder with that name already exists.');
+            }
             throw $e;
         }
-        out(['id' => $noteId, 'title' => $title, 'files' => array_column($clean, 0), 'notes' => $result['notes'], 'questions' => $result['questions'], 'ts' => time()]);
+        out(['id' => $noteId, 'title' => $title, 'folder_id' => $folderId, 'files' => array_column($clean, 0), 'notes' => $result['notes'], 'questions' => $result['questions'], 'ts' => time()]);
 
     case 'rename':
         $id    = int_in('id', 1, PHP_INT_MAX);

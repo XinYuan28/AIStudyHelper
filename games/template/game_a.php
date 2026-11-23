@@ -30,8 +30,9 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-            overflow: hidden;
+            min-height: 100vh;
+            min-height: 100dvh;
+            padding: 12px;
             background-image: radial-gradient(circle at center, #2d3436 0%, #1a1a1a 100%);
         }
 
@@ -65,7 +66,7 @@
         }
 
         h1 {
-            font-size: 3rem;
+            font-size: clamp(1.7rem, 6vw, 3rem);
             color: var(--primary);
             text-transform: uppercase;
             letter-spacing: 2px;
@@ -222,6 +223,8 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
             padding: 15px 25px;
             background: rgba(0,0,0,0.6);
             border-bottom: 2px solid var(--primary);
@@ -259,7 +262,8 @@
             max-height: 470px;
             align-content: center;
             justify-content: center;
-            grid-auto-rows: minmax(0, 1fr);
+            grid-template-columns: repeat(var(--board-columns), minmax(0, 1fr));
+            grid-template-rows: repeat(var(--board-rows), minmax(0, 1fr));
         }
 
         /* Card Styles */
@@ -311,6 +315,7 @@
             border: 3px solid var(--primary);
             transform: rotateY(180deg);
             flex-direction: column;
+            overflow-wrap: anywhere;
         }
 
         .card.matched .card-back {
@@ -388,14 +393,14 @@
             border-radius: 12px;
             border: 2px solid var(--primary);
             text-align: center;
-            min-width: 350px;
+            width: min(350px, calc(100% - 24px));
+            max-height: calc(100% - 24px);
+            overflow-y: auto;
         }
 
         .back-to-play-menu {
-    position: fixed;
-    top: 16px;
-    left: 16px;
-    z-index: 10;
+    align-self: flex-start;
+    margin-bottom: 12px;
     padding: 8px 12px;
     background: #fff;
     color: #222;
@@ -407,6 +412,53 @@
 .back-to-play-menu:focus-visible {
     text-decoration: underline;
 }
+
+        @media (max-width: 600px), (max-height: 690px) {
+            .screen {
+                height: auto;
+            }
+
+            .view {
+                height: auto;
+                padding: 16px;
+            }
+
+            #game-header,
+            #board-container {
+                padding: 10px;
+            }
+
+            .grid {
+                height: auto;
+                max-height: none;
+                grid-template-rows: none;
+                grid-auto-rows: minmax(112px, auto);
+            }
+        }
+
+        @media (max-width: 600px) {
+            .grid {
+                grid-template-columns: repeat(var(--compact-columns), minmax(0, 1fr));
+                gap: 6px;
+            }
+
+            .card-face {
+                padding: 4px;
+            }
+
+            .stats-box {
+                font-size: .9rem;
+            }
+
+            #lives-display {
+                font-size: 1.1rem;
+                letter-spacing: 1px;
+            }
+
+            .overlay-content {
+                padding: 16px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -707,8 +759,9 @@
             else if (totalCards <= 10) { cols = 5; rows = 2; }
             else { cols = 3; rows = 4; }
             
-            grid.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
-            grid.style.gridTemplateRows = `repeat(${rows}, minmax(0, 1fr))`;
+            grid.style.setProperty('--board-columns', cols);
+            grid.style.setProperty('--board-rows', rows);
+            grid.style.setProperty('--compact-columns', Math.min(cols, 3));
             
             // Select random data
             let shuffledData = shuffleArray(diseaseData);

@@ -630,6 +630,28 @@ h4 {
 
 }
 
+@media (max-width: 420px) {
+    .nav {
+        flex-wrap: wrap;
+        gap: .4rem;
+    }
+
+    .nav-links {
+        order: 1;
+        width: 100%;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .signup {
+        padding-inline: 1rem;
+    }
+
+    .footer-inner {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
     html {
         scroll-behavior: auto;

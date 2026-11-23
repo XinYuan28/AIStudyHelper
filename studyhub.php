@@ -32,8 +32,8 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
         <!-- HOME SIDEBAR (same design as the note page sidebar, but it can be hidden with the button in the top bar) -->
         <?php require __DIR__ . '/studyhub_sidebar.php'; ?>
 
-        <!-- DELETE CONFIRM -->
-        <div class="modal" id="confirmModal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" hidden>
+        <!-- NOTE ACTION CONFIRMATION -->
+        <div class="modal" id="confirmModal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmText" hidden>
             <div class="modal-box">
                 <h3 id="confirmTitle">Delete this note?</h3><!-- the heading text is set by studyhub.js -->
                 <p id="confirmText"></p>
@@ -62,9 +62,37 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
                 <h3 id="nameTitle">Name your notes</h3>
                 <p id="nameFiles"></p>
                 <input type="text" class="name-input" id="nameInput" maxlength="60" autocomplete="off" aria-label="Note name">
+                <div class="folder-fields" id="saveFolderFields" hidden>
+                    <label for="saveFolder">Save to folder <small>(optional)</small></label>
+                    <select class="name-input" id="saveFolder"></select>
+                    <div id="saveFolderNameField" hidden>
+                        <label for="saveFolderName">Folder name</label>
+                        <input class="name-input" id="saveFolderName" maxlength="100" autocomplete="off">
+                    </div>
+                </div>
+                <p class="note-msg warn" id="nameError" role="alert" hidden></p>
                 <div class="actions">
                     <button type="button" class="btn ghost small" id="nameCancel">Cancel</button>
                     <button type="submit" class="btn small" id="nameOk">Continue</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="modal" id="folderModal" role="dialog" aria-modal="true" aria-labelledby="folderTitle" hidden>
+            <form class="modal-box" id="folderForm">
+                <h3 id="folderTitle">New folder</h3>
+                <div class="folder-fields" id="newFolderField">
+                    <label for="newFolderName">Folder name</label>
+                    <input class="name-input" id="newFolderName" maxlength="100" autocomplete="off">
+                </div>
+                <div class="folder-fields" id="moveFolderField" hidden>
+                    <label for="moveFolder">Destination folder</label>
+                    <select class="name-input" id="moveFolder"></select>
+                </div>
+                <p class="note-msg warn" id="folderError" role="alert" hidden></p>
+                <div class="actions">
+                    <button type="button" class="btn ghost small" id="folderCancel">Cancel</button>
+                    <button type="submit" class="btn small" id="folderSubmit">Create</button>
                 </div>
             </form>
         </div>
@@ -169,15 +197,27 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
 
             <input type="file" id="fileInput" accept=".pdf,.docx,.pptx,.xlsx,.odt,.rtf,.txt,.md,.csv,.mp3,.m4a,.wav" multiple hidden>
 
-            <section class="notes-box" aria-label="Notes">
+            <section class="notes-box" aria-labelledby="noteListTitle">
                 <div class="notes-head">
-                    <h2>Notes</h2>
-                    <button type="button" class="btn ghost small" id="uploadBtn">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M12 16V4M6 10l6-6 6 6M4 20h16" />
-                        </svg>
-                        Upload
-                    </button>
+                    <div class="notes-heading">
+                        <button type="button" class="btn ghost small folder-back" id="folderBack" aria-label="Back to folders" hidden>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>
+                        </button>
+                        <div class="notes-title">
+                            <span class="folder-breadcrumb" id="folderBreadcrumb" hidden>Folders</span>
+                            <h2 id="noteListTitle">Notes</h2>
+                        </div>
+                    </div>
+                    <div class="notes-controls">
+                        <button type="button" class="btn ghost small" id="folderViewBtn"><span id="folderViewIcon"></span><span id="folderViewLabel">Folders</span></button>
+                        <button type="button" class="btn ghost small" id="uploadBtn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M12 16V4M6 10l6-6 6 6M4 20h16" />
+                            </svg>
+                            Upload
+                        </button>
+                        <button type="button" class="btn ghost small" id="newFolderBtn" hidden><span aria-hidden="true">+</span> New folder</button>
+                    </div>
                     <div class="delete-bar" id="deleteBar" hidden>
                         <button type="button" class="btn ghost small" id="deleteSelectAll">Select all</button>
                         <button type="button" class="btn ghost small" id="deleteCancel">Cancel</button>

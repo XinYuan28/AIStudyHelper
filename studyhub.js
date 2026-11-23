@@ -73,7 +73,11 @@ function ago(ts) {
     return 'Updated ' + d + (d === 1 ? ' day ago' : ' days ago');
 }
 
-let lessons = []; // [{id, title, files: [names], updated: ms}] loaded from the notes table
+let lessons = []; // [{id, title, files: [names], folderId, updated: ms}]
+let folders = [];
+let viewingFolders = false;
+let activeFolderId = null;
+const folderIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h7l2 2h9v12H3z"/></svg>';
 let listState = 'loading'; // 'loading' | 'ready' | 'error'
 let listError = '';
 let current = null;
@@ -137,8 +141,14 @@ async function refreshList() {
             id: n.id,
             title: n.title,
             files: n.files,
+            folderId: n.folder_id,
             updated: n.ts * 1000
         }));
+        folders = r.folders;
+        if (activeFolderId !== null && !folders.some(f => f.id === activeFolderId)) {
+            activeFolderId = null;
+            viewingFolders = true;
+        }
         listState = 'ready';
     } catch (err) {
         listState = 'error';
@@ -208,7 +218,27 @@ document.addEventListener('keydown', e => {
 /* HOME - LIST OF NOTES AND UPLOAD FILE*/
 const bookIcon = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5.5C5 4.5 8 4.5 12 6c4-1.5 7-1.5 9-.5V19c-2-1-5-1-9 .5-4-1.5-7-1.5-9-.5V5.5zM12 6v13.5" /></svg>';
 
+function visibleNotes() {
+    return activeFolderId === null ? lessons : lessons.filter(l => l.folderId === activeFolderId);
+}
+
+function showNoteList(foldersView, folderId = null) {
+    viewingFolders = foldersView;
+    activeFolderId = folderId;
+    exitDeleteMode();
+}
+
 function renderList() {
+    closeNoteMenus();
+    const folder = folders.find(f => f.id === activeFolderId);
+    $('noteListTitle').textContent = viewingFolders ? 'Folders' : folder?.name || 'Notes';
+    $('folderBreadcrumb').hidden = !folder;
+    $('folderBack').hidden = !folder || deleteMode;
+    $('folderViewBtn').hidden = !!folder || deleteMode;
+    $('folderViewLabel').textContent = viewingFolders ? 'Notes' : 'Folders';
+    $('folderViewIcon').innerHTML = viewingFolders ? bookIcon : folderIcon;
+    $('uploadBtn').hidden = viewingFolders || deleteMode;
+    $('newFolderBtn').hidden = !viewingFolders || listState !== 'ready';
     const box = $('noteList');
     box.textContent = '';
     if (listState === 'loading') {
@@ -223,11 +253,31 @@ function renderList() {
         box.appendChild(e);
         return;
     }
-    if (!lessons.length) {
+    if (viewingFolders) {
+        if (!folders.length) box.appendChild(el('p', 'empty', 'No folders yet. Create one to organise your notes.'));
+        folders.forEach(f => {
+            const row = el('button', 'note-row folder-row');
+            row.type = 'button';
+            const ico = el('span', 'ico');
+            ico.innerHTML = folderIcon;
+            const info = el('span', 'note-info');
+            info.append(el('strong', 'folder-row-name', f.name),
+                el('small', '', f.note_count + (f.note_count === 1 ? ' note · ' : ' notes · ') + ago(f.ts * 1000)));
+            row.append(ico, info, el('span', 'folder-chevron', '›'));
+            row.addEventListener('click', () => {
+                showNoteList(false, f.id);
+                $('folderBack').focus();
+            });
+            box.appendChild(row);
+        });
+        return;
+    }
+    const notes = visibleNotes();
+    if (!notes.length) {
         const e = el('div', 'empty');
-        e.appendChild(el('b', '', 'No notes yet'));
-        e.appendChild(el('span', '', 'Click here or drop your files (up to ' + MAX_TOTAL_MB + ' MB in total) to upload your first study material.'));
-        e.addEventListener('click', () => pick(null));
+        e.appendChild(el('b', '', folder ? 'This folder is empty' : 'No notes yet'));
+        e.appendChild(el('span', '', 'Click here or drop your files (up to ' + MAX_TOTAL_MB + ' MB in total) to upload study materials.'));
+        e.addEventListener('click', () => pick(null, activeFolderId));
         ['dragover', 'dragenter'].forEach(t => e.addEventListener(t, ev => {
             ev.preventDefault();
             e.classList.add('drag');
@@ -235,13 +285,15 @@ function renderList() {
         ['dragleave', 'drop'].forEach(t => e.addEventListener(t, () => e.classList.remove('drag')));
         e.addEventListener('drop', ev => {
             ev.preventDefault();
-            if (ev.dataTransfer.files.length) addLesson(ev.dataTransfer.files);
+            if (ev.dataTransfer.files.length) addLesson(ev.dataTransfer.files, null, activeFolderId);
         });
         box.appendChild(e);
         return;
     }
-    lessons.slice().sort((a, b) => b.updated - a.updated).forEach(l => {
+    const folderNames = new Map(folders.map(f => [f.id, f.name]));
+    notes.slice().sort((a, b) => b.updated - a.updated).forEach(l => {
         const row = el('div', 'note-row');
+        row.dataset.noteId = l.id;
         const ico = el('div', 'ico');
         ico.innerHTML = bookIcon;
         const info = el('div', 'note-info');
@@ -249,7 +301,17 @@ function renderList() {
         head.appendChild(el('h3', '', l.title));
         if (l.files && l.files.length > 1) head.appendChild(el('span', 'file-badge', l.files.length + ' files'));
         info.appendChild(head);
-        info.appendChild(el('small', '', ago(l.updated)));
+        const meta = el('div', 'note-meta');
+        meta.appendChild(el('small', '', ago(l.updated)));
+        const folderName = folderNames.get(l.folderId);
+        if (folderName && !folder) {
+            const tag = el('span', 'file-badge folder-tag');
+            tag.innerHTML = folderIcon;
+            tag.appendChild(el('span', '', folderName));
+            tag.title = folderName;
+            meta.appendChild(tag);
+        }
+        info.appendChild(meta);
 
         // a real link: opens the note in a new tab (so several notes can be open at once); Ctrl/middle-click work too
         const open = el('a', 'btn ghost small open-note-btn');
@@ -293,7 +355,16 @@ function renderList() {
         menu.setAttribute('role', 'menu');
         menu.hidden = true;
         menu._noteMenuWrap = menuWrap;
-        menu.append(edit, conv, del);
+        const move = el('button', 'note-menu-item');
+        move.type = 'button';
+        move.setAttribute('role', 'menuitem');
+        move.innerHTML = folderIcon;
+        move.appendChild(el('span', '', folder ? 'Remove from folder' : 'Move to folder'));
+        move.addEventListener('click', () => {
+            if (folder) askRemoveFromFolder(l, menuToggle);
+            else openFolderDialog(l, menuToggle);
+        });
+        menu.append(edit, move, conv, del);
         menuToggle.addEventListener('click', () => {
             const willOpen = menu.hidden;
             closeNoteMenus();
@@ -388,6 +459,8 @@ async function convertNote(l, btn) {
 /* DELETE WITH CONFIRMATION */
 const trashIcon = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" /></svg>';
 let pendingDelete = []; // the notes waiting for the user's confirmation
+let pendingFolderRemoval = null;
+let confirmTrigger = null;
 
 // "Delete" in a note's menu starts delete mode: checkboxes appear and that note is ticked already
 function enterDeleteMode(l) {
@@ -405,7 +478,6 @@ function exitDeleteMode() {
 
 function syncDeleteMode() {
     $('deleteBar').hidden = !deleteMode;
-    $('uploadBtn').hidden = deleteMode;
     updateDeleteBar();
     renderList();
 }
@@ -414,13 +486,14 @@ function updateDeleteBar() {
     const n = selectedIds.size;
     $('deleteSelected').textContent = 'Delete (' + n + ')';
     $('deleteSelected').disabled = n === 0;
-    $('deleteSelectAll').textContent = n && n === lessons.length ? 'Clear all' : 'Select all';
+    $('deleteSelectAll').textContent = n && n === visibleNotes().length ? 'Clear all' : 'Select all';
 }
 
 $('deleteCancel').addEventListener('click', exitDeleteMode);
 $('deleteSelectAll').addEventListener('click', () => {
-    if (selectedIds.size === lessons.length) selectedIds.clear();
-    else lessons.forEach(l => selectedIds.add(l.id));
+    const notes = visibleNotes();
+    if (selectedIds.size === notes.length) selectedIds.clear();
+    else notes.forEach(l => selectedIds.add(l.id));
     updateDeleteBar();
     renderList();
 });
@@ -436,13 +509,29 @@ function askDelete(list) {
         $('confirmTitle').textContent = 'Delete ' + list.length + ' notes?';
         $('confirmText').textContent = 'These ' + list.length + ' notes will move to Trash. You can restore them for 10 days before they are permanently deleted.';
     }
+    showConfirm('Delete', $('deleteSelected'));
+}
+
+function askRemoveFromFolder(note, trigger) {
+    pendingFolderRemoval = note;
+    $('confirmTitle').textContent = 'Remove this note from the folder?';
+    $('confirmText').textContent = '"' + note.title + '" will move to Unsorted and remain in your Notes list.';
+    showConfirm('Remove', trigger);
+}
+
+function showConfirm(label, trigger) {
+    confirmTrigger = trigger;
+    $('confirmOk').textContent = label;
     $('confirmModal').hidden = false;
     $('confirmCancel').focus();
 }
 
 function closeConfirm() {
     pendingDelete = [];
+    pendingFolderRemoval = null;
     $('confirmModal').hidden = true;
+    confirmTrigger?.focus();
+    confirmTrigger = null;
 }
 $('confirmCancel').addEventListener('click', closeConfirm);
 $('confirmModal').addEventListener('click', e => {
@@ -453,7 +542,12 @@ document.addEventListener('keydown', e => {
 });
 $('confirmOk').addEventListener('click', async () => {
     const list = pendingDelete;
+    const note = pendingFolderRemoval;
     closeConfirm();
+    if (note) {
+        await removeFromFolder(note);
+        return;
+    }
     if (!list.length) return;
     let failed = 0,
         lastError = '';
@@ -470,12 +564,14 @@ $('confirmOk').addEventListener('click', async () => {
         }
     }
     if (failed) {
+        await refreshList();
         // keep delete mode open with the failed notes still ticked so the user can try again
         setHint(failed + (failed === 1 ? ' note' : ' notes') + ' could not be deleted. ' + lastError, true);
         updateDeleteBar();
         renderList();
     } else {
         exitDeleteMode();
+        await refreshList();
     }
 });
 
@@ -498,21 +594,115 @@ document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && !logoutModal.hidden) logoutModal.hidden = true;
 });
 
-/* UPLOAD / GENERATE FROM HOME */
-let pendingAction = null; 
+/* FOLDER NAVIGATION AND ACTIONS */
+$('folderViewBtn').addEventListener('click', () => showNoteList(!viewingFolders));
+$('folderBack').addEventListener('click', () => {
+    const previousId = activeFolderId;
+    showNoteList(true);
+    const index = folders.findIndex(f => f.id === previousId);
+    ($('noteList').children[index] || $('folderViewBtn')).focus();
+});
 
-function pick(action) {
+function fillFolderOptions(select, folderId, allowCreate) {
+    select.replaceChildren(new Option('No folder (Unsorted)', ''));
+    folders.slice().sort((a, b) => a.name.localeCompare(b.name)).forEach(f => {
+        select.add(new Option(f.name, String(f.id)));
+    });
+    if (allowCreate) select.add(new Option('+ Create new folder', 'new'));
+    select.value = folders.some(f => f.id === folderId) ? String(folderId) : '';
+}
+
+let movingNote = null;
+let folderDialogTrigger = null;
+
+async function removeFromFolder(note) {
+    try {
+        await apiCall('move_note', { id: note.id, folder_id: '' }, 'POST');
+    } catch (err) {
+        setHint(err.message, true);
+        return;
+    }
+    selectedIds.delete(note.id);
+    await refreshList();
+    updateDeleteBar();
+    if (!$('folderBack').hidden) $('folderBack').focus();
+}
+
+function openFolderDialog(note, trigger) {
+    movingNote = note;
+    folderDialogTrigger = trigger;
+    $('folderTitle').textContent = note ? 'Move to folder' : 'New folder';
+    $('newFolderField').hidden = !!note;
+    $('newFolderName').required = !note;
+    $('newFolderName').value = '';
+    $('moveFolderField').hidden = !note;
+    $('folderSubmit').textContent = note ? 'Move' : 'Create';
+    $('folderError').hidden = true;
+    if (note) fillFolderOptions($('moveFolder'), note.folderId, false);
+    $('folderModal').hidden = false;
+    $(note ? 'moveFolder' : 'newFolderName').focus();
+}
+
+function closeFolderDialog() {
+    if ($('folderSubmit').disabled) return;
+    $('folderModal').hidden = true;
+    folderDialogTrigger?.focus();
+}
+
+$('newFolderBtn').addEventListener('click', () => openFolderDialog(null, $('newFolderBtn')));
+$('folderCancel').addEventListener('click', closeFolderDialog);
+$('folderModal').addEventListener('click', e => {
+    if (e.target === $('folderModal')) closeFolderDialog();
+});
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !$('folderModal').hidden) closeFolderDialog();
+});
+$('folderForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    if ($('folderSubmit').disabled) return;
+    $('folderSubmit').disabled = true;
+    $('folderError').hidden = true;
+    const note = movingNote;
+    try {
+        if (note) {
+            await apiCall('move_note', { id: note.id, folder_id: $('moveFolder').value }, 'POST');
+        } else {
+            await apiCall('create_folder', { folder_name: $('newFolderName').value.trim() }, 'POST');
+        }
+        await refreshList();
+        $('folderSubmit').disabled = false;
+        closeFolderDialog();
+        if (note) {
+            const row = $('noteList').querySelector('[data-note-id="' + note.id + '"]');
+            const fallback = activeFolderId === null ? $('folderViewBtn') : $('folderBack');
+            (row?.querySelector('.note-menu-toggle') || fallback).focus();
+        }
+    } catch (err) {
+        $('folderError').textContent = err.message;
+        $('folderError').hidden = false;
+    } finally {
+        $('folderSubmit').disabled = false;
+    }
+});
+
+/* UPLOAD / GENERATE FROM HOME */
+let pendingAction = null;
+let pendingFolderId = null;
+
+function pick(action, folderId = null) {
     pendingAction = action;
+    pendingFolderId = folderId;
     $('fileInput').click();
 }
-$('uploadBtn').addEventListener('click', () => pick(null));
+$('uploadBtn').addEventListener('click', () => pick(null, activeFolderId));
 $('homeNotes').addEventListener('click', () => pick('notes'));
 $('homeQuiz').addEventListener('click', () => pick('quiz'));
 $('fileInput').addEventListener('change', e => {
     const files = Array.from(e.target.files);
     const action = pendingAction;
     pendingAction = null;
-    if (files.length) addLesson(files, action);
+    if (files.length) addLesson(files, action, pendingFolderId);
+    pendingFolderId = null;
     e.target.value = '';
 });
 
@@ -547,7 +737,7 @@ function setHint(msg, warn) {
     if (warn) hintTimer = setTimeout(() => setHint(HINT_DEFAULT, false), 6000);
 }
 
-function addLesson(fileList, action) {
+function addLesson(fileList, action, folderId = null) {
     const files = Array.from(fileList || []);
     if (!files.length) return;
     // reject the whole selection (instead of quietly dropping files) so the user knows what happened
@@ -569,7 +759,7 @@ function addLesson(fileList, action) {
         return;
     }
     setHint(HINT_DEFAULT, false);
-    askName(files.map(f => f.name), action, files.map(f => f.size), files);
+    askName(files.map(f => f.name), action, files.map(f => f.size), files, folderId);
 }
 
 /* NAME YOUR NOTES (shown after the files are picked) */
@@ -587,12 +777,22 @@ function openNameBox(heading, okText, files, value) {
     $('nameFiles').textContent = files;
     $('nameFiles').hidden = !files;
     $('nameInput').value = value;
+    $('saveFolderFields').hidden = !pendingUpload;
+    $('nameError').hidden = true;
+    updateSaveFolderField();
     $('nameModal').hidden = false;
     $('nameInput').focus();
     $('nameInput').select();
 }
 
-function askName(names, action, sizes, files) {
+function updateSaveFolderField() {
+    const creating = !!pendingUpload && $('saveFolder').value === 'new';
+    $('saveFolderNameField').hidden = !creating;
+    $('saveFolderName').required = creating;
+}
+$('saveFolder').addEventListener('change', updateSaveFolderField);
+
+function askName(names, action, sizes, files, folderId) {
     pendingRename = null;
     pendingUpload = {
         names: names,
@@ -600,7 +800,9 @@ function askName(names, action, sizes, files) {
         files: files || [],
         action: action
     };
-    openNameBox('Name your notes', 'Continue', filesSummary(names, sizes), defaultName(names));
+    fillFolderOptions($('saveFolder'), folderId, true);
+    $('saveFolderName').value = '';
+    openNameBox('Name your notes', 'Save notes', filesSummary(names, sizes), defaultName(names));
 }
 
 function askRename(l) {
@@ -633,8 +835,7 @@ $('nameForm').addEventListener('submit', async e => {
                     id: l.id,
                     title: title
                 }, 'POST');
-                l.title = title;
-                l.updated = Date.now();
+                await refreshList();
             } catch (err) {
                 setHint(err.message, true);
             }
@@ -645,8 +846,20 @@ $('nameForm').addEventListener('submit', async e => {
     if (!pendingUpload) return;
     const up = pendingUpload;
     const title = $('nameInput').value.trim() || defaultName(up.names);
-    closeName();
-    createLesson(title, up.names, up.action, up.sizes, up.files);
+    const destination = $('saveFolder').value;
+    const folder = destination === 'new'
+        ? { folder_name: $('saveFolderName').value.trim() }
+        : { folder_id: destination };
+    $('nameModal').hidden = true;
+    try {
+        await createLesson(title, up, folder);
+        closeName();
+    } catch (err) {
+        $('nameError').textContent = err.message;
+        $('nameError').hidden = false;
+        $('nameModal').hidden = false;
+        $(destination === 'new' ? 'saveFolderName' : 'nameInput').focus();
+    }
 });
 
 // saves the note and its files in the database first, then opens it
@@ -661,32 +874,31 @@ function hideGenerating() {
     $('generatingModal').hidden = true;
 }
 
-async function createLesson(title, names, action, sizes, files) {
+async function createLesson(title, upload, folder) {
     let r;
     showGenerating(title);
     try {
         r = await apiCall('create', {
             title: title,
-            uploads: files
+            uploads: upload.files,
+            ...folder
         }, 'POST');
-    } catch (err) {
+    } finally {
         hideGenerating();
-        setHint(err.message, true);
-        return;
     }
-    hideGenerating();
     const l = {
         id: r.id,
         title: r.title,
         files: r.files,
-        updated: Date.now()
+        folderId: r.folder_id,
+        updated: r.ts * 1000
     };
     lessons.unshift(l);
     currentQuestions = normaliseQuestions(r.questions);
     notesText = r.notes || '';
     openLesson(l.id, true);
-    if (action === 'notes') buildNotes('full');
-    else if (action === 'quiz') startQuiz(currentQuestions.slice(0, 8));
+    if (upload.action === 'notes') buildNotes('full');
+    else if (upload.action === 'quiz') startQuiz(currentQuestions.slice(0, 8));
 }
 
 /* NAVIGATION */
@@ -711,7 +923,6 @@ function showHome() {
     deleteMode = false;
     selectedIds.clear();
     $('deleteBar').hidden = true;
-    $('uploadBtn').hidden = false;
     setNoteUrl(0);
     document.body.classList.add('home-active');
     $('viewLesson').hidden = true;
