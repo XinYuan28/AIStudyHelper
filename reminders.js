@@ -105,7 +105,22 @@ function updateSessionPreview() {
         ? end.toLocaleTimeString([], format) : end.toLocaleString([], { ...format, month: 'short', day: 'numeric' });
     preview.textContent = start.toLocaleTimeString([], format) + ' – ' + endLabel + ' · ' + duration + ' minutes';
 }
-['hours', 'minutes', 'reminderTime'].forEach(id => byId(id).addEventListener('input', updateSessionPreview));
+['hours', 'minutes', 'reminderTime'].forEach(id => {
+    byId(id).addEventListener('input', () => {
+        const minutes = Number(byId('minutes').value);
+        const hours = Number(byId('hours').value);
+
+        if (
+            Number.isInteger(minutes) && minutes >= 60 &&
+            Number.isInteger(hours) && hours >= 0
+        ) {
+            byId('hours').value = hours + Math.floor(minutes / 60);
+            byId('minutes').value = minutes % 60;
+        }
+
+        updateSessionPreview();
+    });
+});
 
 function resetForm() {
     editingId = null;
