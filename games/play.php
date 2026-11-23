@@ -9,6 +9,9 @@ if (!$game || ($game['template'] ?? '') !== $t) {
     echo 'No game loaded. <a href="../studyhub.php">Go back</a>'; exit;
 }
 
+$sourceNoteId = (int) ($game['source_note_id'] ?? 0);
+$backToGameQuiz = '../play_menu.php' . ($sourceNoteId > 0 ? '?note=' . $sourceNoteId : '');
+
 if ($t === 'A') {
     $diseaseData = [];
     foreach ($game['pairs'] as $i => $p) {

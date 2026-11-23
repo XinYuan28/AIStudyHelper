@@ -467,7 +467,7 @@
         
         <!-- 1. START PAGE / MAIN MENU -->
         <div id="start-page" class="view active">
-            <a class="back-to-play-menu" href="../play_menu.php">← Back to Play Menu</a>
+            <a class="back-to-play-menu" href="<?= htmlspecialchars($backToGameQuiz ?? '../play_menu.php', ENT_QUOTES, 'UTF-8') ?>">← Back to Game Quiz</a>
             <h1>Tile Match</h1>
             
             <p style="font-size: 1.1rem; max-width: 80%; margin-top: 10px; line-height: 1.5;">

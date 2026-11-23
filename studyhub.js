@@ -901,6 +901,41 @@ async function createLesson(title, upload, folder) {
     else if (upload.action === 'quiz') startQuiz(currentQuestions.slice(0, 8));
 }
 
+/* On phones the page scrolls first, then the notes list takes over. */
+const homeView = $('viewHome');
+const homeTopbar = document.querySelector('.topbar');
+const homeNotesBox = homeView.querySelector('.notes-box');
+
+function updateNotesDock() {
+    if (homeView.hidden) return;
+    const docked = homeNotesBox.getBoundingClientRect().top <=
+        homeTopbar.getBoundingClientRect().bottom + 1;
+    homeView.classList.toggle('notes-docked', docked);
+}
+
+const homeLayoutObserver = new ResizeObserver(() => {
+    document.body.style.setProperty('--home-topbar-height', homeTopbar.offsetHeight + 'px');
+    updateNotesDock();
+});
+homeLayoutObserver.observe(homeTopbar);
+homeLayoutObserver.observe(homeView);
+window.addEventListener('scroll', updateNotesDock, { passive: true });
+window.addEventListener('resize', updateNotesDock);
+
+$('noteList').addEventListener('focusin', () => {
+    if (window.matchMedia('(max-width: 760px)').matches && !homeView.classList.contains('notes-docked')) {
+        const offset = homeNotesBox.getBoundingClientRect().top - homeTopbar.getBoundingClientRect().bottom;
+        if (offset > 1) window.scrollBy({ top: offset, behavior: 'instant' });
+        updateNotesDock();
+    }
+});
+
+const lessonMenuToggle = $('lessonMenuToggle');
+lessonMenuToggle.addEventListener('click', () => {
+    const expanded = lessonMenuToggle.getAttribute('aria-expanded') === 'true';
+    lessonMenuToggle.setAttribute('aria-expanded', String(!expanded));
+});
+
 /* NAVIGATION */
 const panels = ['start', 'notes', 'game', 'custom', 'tts'];
 

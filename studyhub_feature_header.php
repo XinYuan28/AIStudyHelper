@@ -15,7 +15,7 @@ $initial = mb_strtoupper(mb_substr($userName, 0, 1));
 </div>
 
 <!-- TOP BAR -->
-<header class="topbar">
+<header class="topbar feature-topbar">
     <div class="topbar-left">
         <div class="topbar-brand">
             <a href="studyhub.php"><img src="Images/AISNH_Cat coloredlogo(S).png" alt="AI Study Note Helper" class="logo"></a>

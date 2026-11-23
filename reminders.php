@@ -30,9 +30,16 @@ if ($fromNote) {
     <?php endif; ?>
     <script src="studyhub_feature_header.js?v=<?= filemtime(__DIR__ . '/studyhub_feature_header.js') ?>" defer></script>
 </head>
-<body<?= $fromNote ? '' : ' class="home-active"' ?>>
+<body<?= $fromNote ? '' : ' class="home-active feature-mobile-menu"' ?>>
 <?php if (!$fromNote) require __DIR__ . '/studyhub_sidebar.php'; ?>
 <?php require __DIR__ . '/studyhub_feature_header.php'; ?>
+<?php if (!$fromNote): ?>
+    <?php
+    $sidebarMobileMenu = true;
+    require __DIR__ . '/studyhub_sidebar.php';
+    unset($sidebarMobileMenu);
+    ?>
+<?php endif; ?>
 <?php if ($fromNote): ?>
 <div class="lesson">
     <?php require __DIR__ . '/studyhub_sidebar.php'; ?>

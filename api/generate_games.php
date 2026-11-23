@@ -24,13 +24,16 @@ $uid = (int)$_SESSION[SESSION_USER_KEY];
 
 $template = ($_POST['t'] ?? 'A') === 'B' ? 'B' : 'A';
 
+$sourceNoteId = 0;
 $notes = trim(is_string($_POST['notes'] ?? null) ? $_POST['notes'] : '');
 if ($notes === '' && isset($_POST['note_id'])) {
     // deleted_at IS NULL: notes in the trash can no longer be turned into games
     $stmt = db()->prepare("SELECT content FROM notes WHERE id = ? AND user_id = ? AND deleted_at IS NULL");
-    $stmt->execute([(int)$_POST['note_id'], $uid]);
+    $noteId = (int) $_POST['note_id'];
+    $stmt->execute([$noteId, $uid]);
     $row = $stmt->fetch();
     $notes = trim($row['content'] ?? '');
+    if ($row) $sourceNoteId = $noteId;
 }
 if ($notes === '') fail(400, 'No notes found');
 $notes = mb_substr($notes, 0, 12000);
@@ -82,6 +85,7 @@ try {
     fail(422, 'Game generation failed, please try again.' . ($local ? ' (Reason: ' . $e->getMessage() . ')' : ''));
 }
 
+$data['source_note_id'] = $sourceNoteId;
 $_SESSION['game_data'] = $data;
 
 if ($go) { header("Location: ../games/play.php?t=$template"); exit; }

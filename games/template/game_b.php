@@ -505,7 +505,7 @@ footer {
 
 <!-- start overlay -->
 <div id="startOverlay" class="overlay">
-   <a class="back-to-play-menu" href="../play_menu.php">← Back to Play Menu</a>
+   <a class="back-to-play-menu" href="<?= htmlspecialchars($backToGameQuiz ?? '../play_menu.php', ENT_QUOTES, 'UTF-8') ?>">← Back to Game Quiz</a>
   <div class="start-card">
     <h2>⌨️ KeyForge</h2>
     <div class="instructions">

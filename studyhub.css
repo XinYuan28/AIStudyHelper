@@ -494,13 +494,25 @@ button.avatar[aria-expanded="true"] {
     }
 }
 
-/* Home uses document scrolling so every feature remains reachable. */
+/* The desktop home fits in the viewport. The mobile home ends at the notes box. */
 body.home-active {
-    min-height: 100vh;
-    height: auto;
-    overflow: visible;
     display: flex;
     flex-direction: column;
+}
+
+body.home-active:not(.home-custom-active):has(> #viewHome) {
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    overflow: clip;
+}
+
+body.home-active .topbar {
+    flex: none;
+}
+
+#viewHome .notes-box {
+    min-height: 0;
 }
 
 .home {
@@ -525,7 +537,7 @@ body.home-active {
 }
 
 #viewHome .home-cat {
-    width: clamp(260px, 50vh, 500px);
+    width: min(100%, 220px, 38dvh);
     margin-bottom: .8rem;
 }
 
@@ -1014,7 +1026,7 @@ body.home-active {
 
 @media (max-height: 680px) {
     #viewHome .home-cat {
-        width: clamp(200px, 42vh, 300px);
+        width: min(100%, 220px, 30dvh);
         margin-bottom: .3rem;
     }
 
@@ -1755,11 +1767,6 @@ body.home-active {
     }
 }
 
-/* CAT SIZE (home page) - to resize cat */
-#viewHome .home-cat {
-    width: min(100%, 220px) !important;
-}
-
 /* CAT SIZE (lesson start page) - to resize cat */
 .start .home-cat {
     width: min(100%, 200px) !important;
@@ -2066,7 +2073,7 @@ button.side-item {
 /* Home sidebar: sits under the top bar, the page content makes room for it while it is open */
 .sidebar.home-sidebar {
     position: fixed;
-    top: 64px;
+    top: var(--home-topbar-height, 68px);
     left: 0;
     bottom: 0;
     align-self: auto;
@@ -2136,16 +2143,16 @@ body:not(.home-active) #homeSidebarToggle {
 }
 
 .topbar-brand {
-    position: relative;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
     flex: none;
 }
 
 #homeSidebarToggle {
-    position: absolute;
-    top: calc(100% + 1.7rem);
-    left: 50%;
-    transform: translateX(-50%);
-    background: var(--surface);
+    flex: none;
+    min-width: 40px;
+    min-height: 40px;
 }
 
 #homeSidebarToggle::before {
@@ -2202,13 +2209,18 @@ body:not(.home-active) #homeSidebarToggle {
 
 body:not(.home-custom-active) .home-feature-home,
 body.home-custom-active #featureMessage,
-.lesson.home-custom > .sidebar {
+.lesson.home-custom > .lesson-feature-menu {
     display: none;
 }
-/* Keep long pages usable at short viewport heights and on touch screens. */
-body.home-active .home { overflow: visible; flex: none; }
-body.home-active .notes-box { height: auto; max-height: none; flex: none; }
-body.home-active .note-list { overflow: visible; flex: none; }
+.lesson-feature-menu {
+    display: contents;
+}
+
+.feature-menu-mobile-only,
+.lesson-menu-toggle {
+    display: none;
+}
+
 .sidebar:not(.home-sidebar) { max-height: calc(100dvh - 64px); overflow-y: auto; }
 @media (max-width: 760px) {
     .lesson { flex-direction: column; }
@@ -2221,6 +2233,9 @@ body.home-active .note-list { overflow: visible; flex: none; }
     .lesson-main { padding: 20px 16px 40px; }
     .topbar { gap: 8px; padding-left: 12px; padding-right: 12px; }
     .topbar .crumbs { min-width: 0; }
+    .topbar.feature-topbar { flex-wrap: nowrap; }
+    .feature-topbar .topbar-left { flex: 1 1 0; }
+    .feature-topbar .crumbs .here { min-width: 0; }
     .home { padding-left: 16px; padding-right: 16px; }
     .home .actions, .panel .actions { flex-wrap: wrap; }
     .card { min-width: 0; }
@@ -2237,12 +2252,14 @@ body.home-active .note-list { overflow: visible; flex: none; }
 @media (max-width: 760px) {
     .topbar { flex-wrap: wrap; }
     .topbar-left { flex: 1 1 180px; gap: 8px; }
-    .topbar-brand { display: flex; align-items: center; gap: 8px; }
-    #homeSidebarToggle { position: static; transform: none; flex: none; min-width: 40px; min-height: 40px; }
     .topbar-right { gap: 8px; flex: none; }
     .topbar .logout { white-space: nowrap; }
     .crumbs { padding-left: 8px; gap: 6px; }
-    .sidebar.home-sidebar { top: 112px; }
+}
+
+@media (max-width: 420px) {
+    .feature-topbar .crumbs > :not(.here) { display: none; }
+    .feature-topbar .crumbs .here { max-width: none; }
 }
 
 .md {
@@ -2258,40 +2275,151 @@ body.home-active .note-list { overflow: visible; flex: none; }
     overflow-x: auto;
 }
 
-@media (max-width: 760px), (max-height: 680px) {
-    body.home-active {
+@media (max-width: 760px) {
+    body.home-active:not(.home-custom-active):has(> #viewHome) {
         height: auto;
         min-height: 100dvh;
-        overflow: visible;
+        overflow-x: clip;
+        overflow-y: visible;
     }
 
-    .home {
+    body.home-active:not(.home-custom-active):has(> #viewHome) .topbar-left {
+        flex-basis: auto;
+    }
+
+    #viewHome {
         flex: none;
         overflow: visible;
+        padding-bottom: 0;
     }
 
-    .notes-box {
-        height: auto;
+    #viewHome .home-cat {
+        width: min(48vw, 200px, 30dvh);
+        margin: .35rem auto;
+    }
+
+    #viewHome .home-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-self: center;
+        width: min(100%, 26rem);
+        gap: .55rem;
+        margin: .85rem 0 0;
+    }
+
+    #viewHome .home-actions .btn {
+        justify-content: center;
+        min-width: 0;
+        min-height: 44px;
+        padding-inline: .5rem;
+        font-size: .9rem;
+    }
+
+    #viewHome .upload-hint {
+        grid-column: 1 / -1;
+    }
+
+    #viewHome .notes-box {
+        flex: none;
+        height: calc(100dvh - var(--home-topbar-height, 68px));
+        min-height: 0;
         max-height: none;
     }
 
-    .note-list {
-        flex: auto;
-        overflow: visible;
+    #viewHome .note-meta {
+        flex-direction: column-reverse;
+        align-items: flex-start;
+        gap: .15rem;
+    }
+
+    #viewHome .note-meta .folder-tag {
+        max-width: 100%;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    #viewHome:not(.notes-docked) .note-list {
+        overflow: clip;
     }
 }
 
 @media (max-width: 760px) {
-    .lesson > .sidebar {
+    .feature-mobile-menu #homeSidebarToggle,
+    .feature-mobile-menu .home-sidebar {
+        display: none;
+    }
+
+    .lesson-feature-menu {
+        position: sticky;
+        top: var(--home-topbar-height, 68px);
+        z-index: 9;
+        display: flex;
+        flex-direction: column;
+        background: var(--surface);
+    }
+
+    .lesson-menu-toggle {
+        display: grid;
+        order: 1;
+        place-items: center;
+        min-height: 44px;
+        border: 0;
+        border-bottom: 1px solid var(--line);
+        background: var(--surface);
+        color: var(--primary);
+        cursor: pointer;
+    }
+
+    .lesson-menu-toggle:focus-visible {
+        outline-offset: -3px;
+    }
+
+    .lesson-menu-toggle[aria-expanded="true"] svg {
+        transform: rotate(180deg);
+    }
+
+
+    .lesson > .sidebar,
+    .lesson-feature-menu > .sidebar {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(min(100%, 86px), 1fr));
         max-height: 40dvh;
         overflow-y: auto;
     }
 
+    .lesson-feature-menu > .sidebar {
+        position: static;
+        width: 100%;
+    }
+
     .sidebar .feature-message {
         grid-column: 1 / -1;
     }
+
+    .lesson-menu-toggle[aria-expanded="false"] + .sidebar {
+        visibility: hidden;
+        max-height: 0;
+        padding-block: 0;
+        border-top-width: 0;
+        opacity: 0;
+        pointer-events: none;
+    }
+}
+
+@media (max-width: 760px) and (prefers-reduced-motion: no-preference) {
+    .lesson-menu-toggle svg {
+        transition: transform 220ms ease;
+    }
+
+    .lesson-feature-menu > .sidebar {
+        transition: max-height 240ms ease, padding-block 240ms ease,
+            border-top-width 240ms ease, opacity 180ms ease, visibility 0s;
+    }
+
+    .lesson-menu-toggle[aria-expanded="false"] + .sidebar {
+        transition-delay: 0s, 0s, 0s, 0s, 240ms;
+    }
+
 }
 
 @media (max-width: 480px) {

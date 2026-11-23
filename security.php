@@ -126,7 +126,7 @@ $initial  = strtoupper(mb_substr($userName ?: 'U', 0, 1));
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet">
 
-        <link rel="stylesheet" href="studyhub.css">
+        <link rel="stylesheet" href="studyhub.css?v=<?= filemtime(__DIR__ . '/studyhub.css') ?>">
         <link rel="stylesheet" href="profile.css">
         <link rel="icon" type="image/png" href="Images/AISNH_Cat coloredlogo(S).png">
 
@@ -136,6 +136,7 @@ $initial  = strtoupper(mb_substr($userName ?: 'U', 0, 1));
                 document.documentElement.dataset.theme = savedTheme;
             }
         </script>
+        <script src="studyhub_feature_header.js?v=<?= filemtime(__DIR__ . '/studyhub_feature_header.js') ?>" data-menu-only defer></script>
     </head>
 
     <body>
@@ -165,7 +166,7 @@ $initial  = strtoupper(mb_substr($userName ?: 'U', 0, 1));
         </div>
 
         <!-- TOP BAR -->
-        <header class="topbar">
+        <header class="topbar feature-topbar">
             <div class="topbar-left">
                 <a href="studyhub.php"><img src="Images/AISNH_Cat coloredlogo(S).png" alt="AI Study Note Helper" class="logo"></a>
                 <div class="crumbs">
@@ -213,33 +214,36 @@ $initial  = strtoupper(mb_substr($userName ?: 'U', 0, 1));
         <div class="lesson">
 
             <!-- SIDEBAR -->
-            <nav class="sidebar" aria-label="Settings">
-                <a href="profile.php" class="side-item">
-                    <span class="side-icon">
-                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5" /></svg>
-                    </span>Profile
-                </a>
-                <a href="security.php" class="side-item active" aria-current="page">
-                    <span class="side-icon">
-                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 6v5.5c0 4.4 3 8 7 9.5 4-1.5 7-5.1 7-9.5V6l-7-3z" /><path d="M9 12l2.2 2.2L15 10.5" /></svg>
-                    </span>Security
-                </a>
-                <a href="privacy.php" class="side-item">
-                    <span class="side-icon">
-                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2.5" /><path d="M9 8h6M9 12h6M9 16h3" /></svg>
-                    </span>Privacy
-                </a>
-                <a href="contact.php" class="side-item">
-                    <span class="side-icon">
-                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3" /><path d="M4 7.5l8 5.5 8-5.5" /></svg>
-                    </span>Contact
-                </a>
-                <a href="faq.php" class="side-item">
-                    <span class="side-icon">
-                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="M9.6 9.5a2.5 2.5 0 1 1 3.6 2.2c-.8.4-1.2.9-1.2 1.8M12 17h.01" /></svg>
-                    </span>FAQs
-                </a>
-            </nav>
+            <div class="lesson-feature-menu">
+                <?php $showSettingsMenuToggle = true; require __DIR__ . '/studyhub_sidebar_toggle.php'; unset($showSettingsMenuToggle); ?>
+                <nav class="sidebar" id="lessonFeatureMenu" aria-label="Settings">
+                    <a href="profile.php" class="side-item">
+                        <span class="side-icon">
+                            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5" /></svg>
+                        </span>Profile
+                    </a>
+                    <a href="security.php" class="side-item active" aria-current="page">
+                        <span class="side-icon">
+                            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 6v5.5c0 4.4 3 8 7 9.5 4-1.5 7-5.1 7-9.5V6l-7-3z" /><path d="M9 12l2.2 2.2L15 10.5" /></svg>
+                        </span>Security
+                    </a>
+                    <a href="privacy.php" class="side-item">
+                        <span class="side-icon">
+                            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2.5" /><path d="M9 8h6M9 12h6M9 16h3" /></svg>
+                        </span>Privacy
+                    </a>
+                    <a href="contact.php" class="side-item">
+                        <span class="side-icon">
+                            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3" /><path d="M4 7.5l8 5.5 8-5.5" /></svg>
+                        </span>Contact
+                    </a>
+                    <a href="faq.php" class="side-item">
+                        <span class="side-icon">
+                            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="M9.6 9.5a2.5 2.5 0 1 1 3.6 2.2c-.8.4-1.2.9-1.2 1.8M12 17h.01" /></svg>
+                        </span>FAQs
+                    </a>
+                </nav>
+            </div>
 
             <main class="lesson-main view">
                 <div class="panel">

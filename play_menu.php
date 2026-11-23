@@ -53,10 +53,17 @@ if (!$showSidebarToggle) {
         <script src="studyhub_feature_header.js?v=<?= filemtime(__DIR__ . '/studyhub_feature_header.js') ?>" defer></script>
     </head>
 
-    <body<?= $showSidebarToggle ? ' class="home-active"' : '' ?>>
+    <body<?= $showSidebarToggle ? ' class="home-active feature-mobile-menu"' : '' ?>>
         <?php if ($showSidebarToggle) require __DIR__ . '/studyhub_sidebar.php'; ?>
 
         <?php require __DIR__ . '/studyhub_feature_header.php'; ?>
+        <?php if ($showSidebarToggle): ?>
+            <?php
+            $sidebarMobileMenu = true;
+            require __DIR__ . '/studyhub_sidebar.php';
+            unset($sidebarMobileMenu);
+            ?>
+        <?php endif; ?>
 
         <div class="lesson">
             <?php if (!$showSidebarToggle) require __DIR__ . '/studyhub_sidebar.php'; ?>

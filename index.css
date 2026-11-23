@@ -387,6 +387,14 @@ h4 {
     background: var(--primary-dark);
 }
 
+.forgotPw {
+    font-size: .9rem;
+    color: var(--primary);
+}
+.forgotPw:hover {
+    text-decoration: underline;
+}
+
 /* WHY US */
 .why {
     background: var(--bg);

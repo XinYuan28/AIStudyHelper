@@ -42,7 +42,7 @@ $settingsSvg = function (string $key, int $size) use ($settingsIcons): string {
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet">
 
-    <link rel="stylesheet" href="studyhub.css">
+    <link rel="stylesheet" href="studyhub.css?v=<?= filemtime(__DIR__ . '/studyhub.css') ?>">
     <link rel="stylesheet" href="profile.css">
     <link rel="icon" type="image/png" href="Images/AISNH_Cat coloredlogo(S).png">
 
@@ -52,6 +52,7 @@ $settingsSvg = function (string $key, int $size) use ($settingsIcons): string {
             document.documentElement.dataset.theme = savedTheme;
         }
     </script>
+    <script src="studyhub_feature_header.js?v=<?= filemtime(__DIR__ . '/studyhub_feature_header.js') ?>" data-menu-only defer></script>
 </head>
 
 <body>
@@ -69,7 +70,7 @@ $settingsSvg = function (string $key, int $size) use ($settingsIcons): string {
     </div>
 
     <!-- TOP BAR -->
-    <header class="topbar">
+    <header class="topbar feature-topbar">
         <div class="topbar-left">
             <a href="studyhub.php"><img src="Images/AISNH_Cat coloredlogo(S).png" alt="AI Study Note Helper" class="logo"></a>
             <div class="crumbs">
@@ -100,13 +101,16 @@ $settingsSvg = function (string $key, int $size) use ($settingsIcons): string {
     <div class="lesson">
 
         <!-- SIDEBAR -->
-        <nav class="sidebar" aria-label="Settings">
-            <?php foreach ($settingsPages as $key => $p): ?>
-                <a href="<?= h($p[2]) ?>" class="side-item<?= $activePage === $key ? ' active' : '' ?>"<?= $activePage === $key ? ' aria-current="page"' : '' ?>>
-                    <span class="side-icon"><?= $settingsSvg($key, 26) ?></span><?= h($p[1]) ?>
-                </a>
-            <?php endforeach; ?>
-        </nav>
+        <div class="lesson-feature-menu">
+            <?php $showSettingsMenuToggle = true; require __DIR__ . '/studyhub_sidebar_toggle.php'; unset($showSettingsMenuToggle); ?>
+            <nav class="sidebar" id="lessonFeatureMenu" aria-label="Settings">
+                <?php foreach ($settingsPages as $key => $p): ?>
+                    <a href="<?= h($p[2]) ?>" class="side-item<?= $activePage === $key ? ' active' : '' ?>"<?= $activePage === $key ? ' aria-current="page"' : '' ?>>
+                        <span class="side-icon"><?= $settingsSvg($key, 26) ?></span><?= h($p[1]) ?>
+                    </a>
+                <?php endforeach; ?>
+            </nav>
+        </div>
 
         <main class="lesson-main view">
             <div class="panel">

@@ -1,4 +1,22 @@
 (() => {
+    const lessonMenuToggle = document.getElementById('lessonMenuToggle');
+    if (lessonMenuToggle) {
+        const topbar = document.querySelector('.topbar');
+        const updateTopbarHeight = () => {
+            document.body.style.setProperty('--home-topbar-height', topbar.offsetHeight + 'px');
+        };
+
+        updateTopbarHeight();
+        new ResizeObserver(updateTopbarHeight).observe(topbar);
+
+        lessonMenuToggle.addEventListener('click', () => {
+            const expanded = lessonMenuToggle.getAttribute('aria-expanded') === 'true';
+            lessonMenuToggle.setAttribute('aria-expanded', String(!expanded));
+        });
+    }
+
+    if (document.currentScript?.hasAttribute('data-menu-only')) return;
+
     const root = document.documentElement;
     const themeBtn = document.getElementById("themeToggle");
     const THEMES = ['light', 'dark', 'yellow'];
