@@ -25,6 +25,7 @@ require_once __DIR__ . '/ai.php';
 require_once __DIR__ . '/telegram.php';
 require_once __DIR__ . '/reminders_backend.php';
 require_once __DIR__ . '/trash_backend.php';
+require_once __DIR__ . '/folders_backend.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
@@ -59,7 +60,7 @@ if ($uid < 1) {
 
 $action = $_GET['action'] ?? '';
 $writes = ['create', 'rename', 'delete', 'save_notes', 'save_quiz',
-    'create_folder', 'move_note',
+    'create_folder', 'move_note', 'delete_folder_notes', 'delete_folder',
     'create_reminder', 'edit_reminder', 'cancel_reminder', 'delete_reminder',
     'connect_telegram', 'disconnect_telegram', 'restore_note', 'permanently_delete_note'];
 if ($action === 'create' && empty($_FILES) && empty($_POST)
@@ -392,6 +393,12 @@ switch ($action) {
             'ts' => (int) $f['ts'],
         ], $st->fetchAll());
         out(['notes' => $notes, 'folders' => $folders]);
+
+    case 'delete_folder_notes':
+    case 'delete_folder':
+        $folderId = int_in('folder_id', 1, PHP_INT_MAX);
+        $deleted = delete_folder_notes($uid, $folderId, $action === 'delete_folder');
+        out(['deleted_count' => $deleted]);
 
     case 'create_folder':
         $name = folder_name();

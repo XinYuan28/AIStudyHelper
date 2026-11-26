@@ -91,6 +91,7 @@ let pendingPanel = ''; // set from ?panel= in the address, e.g. coming back from
 let homeCustom = false; // true when Customise Quiz was opened from the HOME page (no note open yet): the "which note?" column is shown
 let customNoteId = 0; // the saved note picked in that column
 let customNotesText = ''; // its generated notes (kept so the note opens normally once the quiz starts)
+let pendingFolderAction = null;
 let deleteMode = false; // true after "Delete" is chosen in a note's menu: checkboxes appear on every note
 const selectedIds = new Set(); // ids of the notes ticked for deletion
 
@@ -233,6 +234,9 @@ function renderList() {
     const folder = folders.find(f => f.id === activeFolderId);
     $('noteListTitle').textContent = viewingFolders ? 'Folders' : folder?.name || 'Notes';
     $('folderBreadcrumb').hidden = !folder;
+    $('selectFolderNotes').hidden = !folder || deleteMode || !visibleNotes().length;
+    $('clearFolderNotes').hidden = !folder || deleteMode || !visibleNotes().length;
+    $('deleteFolderBtn').hidden = !folder || deleteMode;
     $('folderBack').hidden = !folder || deleteMode;
     $('folderViewBtn').hidden = !!folder || deleteMode;
     $('folderViewLabel').textContent = viewingFolders ? 'Notes' : 'Folders';
@@ -529,6 +533,7 @@ function showConfirm(label, trigger) {
 function closeConfirm() {
     pendingDelete = [];
     pendingFolderRemoval = null;
+    pendingFolderAction = null;
     $('confirmModal').hidden = true;
     confirmTrigger?.focus();
     confirmTrigger = null;
@@ -543,7 +548,12 @@ document.addEventListener('keydown', e => {
 $('confirmOk').addEventListener('click', async () => {
     const list = pendingDelete;
     const note = pendingFolderRemoval;
+    const folderAction = pendingFolderAction;
     closeConfirm();
+    if (folderAction) {
+        await executeFolderDeletion(folderAction);
+        return;
+    }
     if (note) {
         await removeFromFolder(note);
         return;
@@ -2431,4 +2441,31 @@ if (deepNote) {
     }
     renderList(); // shows "Loading your notes…"
     if (!homeCustom) refreshList(); // openHomeCustom already loads notes for its selector
+}
+
+// Folder-wide deletion is separate from selecting individual notes.
+$('selectFolderNotes').addEventListener('click', () => enterDeleteMode());
+function askFolderDeletion(removeFolder, trigger) {
+    const folder = folders.find(item => item.id === activeFolderId);
+    if (!folder) return;
+    pendingFolderAction = { id: folder.id, removeFolder };
+    $('confirmTitle').textContent = removeFolder ? 'Delete folder and its notes?' : 'Delete all notes in this folder?';
+    $('confirmText').textContent = removeFolder
+        ? 'The folder "' + folder.name + '" will be removed. Its notes will move to Trash for 10 days. Restored notes will return to Unsorted.'
+        : 'All notes in "' + folder.name + '" will move to Trash for 10 days. The folder will stay.';
+    showConfirm(removeFolder ? 'Delete folder' : 'Delete all notes', trigger);
+}
+$('clearFolderNotes').addEventListener('click', () => askFolderDeletion(false, $('clearFolderNotes')));
+$('deleteFolderBtn').addEventListener('click', () => askFolderDeletion(true, $('deleteFolderBtn')));
+async function executeFolderDeletion(action) {
+    const controls = [$('clearFolderNotes'), $('deleteFolderBtn')];
+    controls.forEach(button => button.disabled = true);
+    try {
+        await apiCall(action.removeFolder ? 'delete_folder' : 'delete_folder_notes', { folder_id: action.id }, 'POST');
+        if (action.removeFolder) { activeFolderId = null; viewingFolders = true; }
+        selectedIds.clear();
+        await refreshList();
+        setHint(action.removeFolder ? 'Folder deleted. Its notes are in Trash.' : 'Notes moved to Trash. Your folder was kept.');
+    } catch (error) { setHint(error.message, true); }
+    finally { controls.forEach(button => button.disabled = false); }
 }

@@ -1,6 +1,8 @@
 <?php
 require 'auth.php';
 require_login();
+$accountEmail = (string) ($_SESSION['email'] ?? '');
+$needsGooglePrompt = !preg_match('/@(gmail|googlemail)\.com$/iD', $accountEmail);
 $noteId = (int) ($_GET['note'] ?? 0);
 $fromNote = $noteId > 0;
 $showSidebarToggle = !$fromNote;
@@ -79,6 +81,11 @@ if ($fromNote) {
                 <textarea id="reminderDescription" rows="3" maxlength="2000"></textarea>
                 <label for="reminderMethod">Remind me through</label>
                 <select id="reminderMethod"><option value="calendar">Calendar</option><option value="telegram">Telegram</option></select>
+                <fieldset id="googleAccountPrompt" class="google-account-prompt" hidden>
+                    <legend>Do you have a Google account?</legend>
+                    <label class="google-account-choice"><input type="checkbox" id="hasGoogleAccount"> Yes, I have a Google account</label>
+                    <p>You can have a Google account with a non-Gmail email. Without one, leave this unchecked and use Add to calendar (.ics) with your calendar app.</p>
+                </fieldset>
                 <div id="reminderLeadField" hidden>
                     <label for="reminderLead">Telegram notification</label>
                     <select id="reminderLead">
@@ -96,7 +103,7 @@ if ($fromNote) {
             <p id="reminderStatus" role="status" aria-live="polite"></p>
             <h3>On this day</h3>
             <section aria-label="Reminders on selected day" id="reminderList"></section>
-            <details class="telegram-settings">
+            <details class="telegram-settings" id="telegramConnection">
                 <summary>Telegram connection</summary>
                 <p id="telegramStatus" role="status"></p>
                 <button type="button" class="btn" id="connectTelegram">Connect Telegram</button>
@@ -110,7 +117,7 @@ if ($fromNote) {
 <?php if ($fromNote): ?>
 </div>
 <?php endif; ?>
-<script>window.STUDYHUB_CSRF = <?= json_encode(csrf_token()) ?>;</script>
+<script>window.NEEDS_GOOGLE_ACCOUNT_PROMPT = <?= json_encode($needsGooglePrompt) ?>; window.STUDYHUB_CSRF = <?= json_encode(csrf_token()) ?>;</script>
 <script src="reminders.js?v=<?= filemtime(__DIR__ . '/reminders.js') ?>"></script>
 </body>
 </html>

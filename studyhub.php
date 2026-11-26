@@ -1,6 +1,7 @@
 <?php
 require 'auth.php';
 require_login();
+$showTelegramWelcome = claim_telegram_welcome(current_user_id());
 $userName = $_SESSION['name'];
 $initial  = strtoupper(mb_substr($userName, 0, 1));
 ?>
@@ -29,6 +30,15 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
     </head>
 
     <body class="home-active">
+        <?php if ($showTelegramWelcome): ?>
+        <dialog id="telegramWelcome" class="telegram-welcome" aria-labelledby="telegramWelcomeTitle">
+            <h2 id="telegramWelcomeTitle">Do you have Telegram?</h2>
+            <p>Connect Telegram to receive study reminders and recover your password if you forget it.</p>
+            <p><a href="https://telegram.org/" target="_blank" rel="noopener noreferrer">Get Telegram</a></p>
+            <form method="dialog" class="actions"><a href="reminders.php#telegramConnection" class="btn">Yes, connect Telegram</a><button class="btn ghost" value="later">Not now</button></form>
+        </dialog>
+        <script src="telegram_welcome.js" defer></script>
+        <?php endif; ?>
         <!-- HOME SIDEBAR (same design as the note page sidebar, but it can be hidden with the button in the top bar) -->
         <?php require __DIR__ . '/studyhub_sidebar.php'; ?>
 
@@ -216,6 +226,9 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
                             </svg>
                             Upload
                         </button>
+                        <button type="button" class="btn ghost small" id="selectFolderNotes" hidden>Select notes</button>
+                        <button type="button" class="btn ghost small" id="clearFolderNotes" hidden>Delete all notes</button>
+                        <button type="button" class="btn danger small" id="deleteFolderBtn" hidden>Delete folder</button>
                         <button type="button" class="btn ghost small" id="newFolderBtn" hidden><span aria-hidden="true">+</span> New folder</button>
                     </div>
                     <div class="delete-bar" id="deleteBar" hidden>

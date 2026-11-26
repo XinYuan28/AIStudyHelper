@@ -124,7 +124,9 @@ function updateSessionPreview() {
 
 function resetForm() {
     editingId = null;
+    const hasGoogleAccount = byId('hasGoogleAccount').checked;
     byId('reminderForm').reset();
+    byId('hasGoogleAccount').checked = hasGoogleAccount;
     updateReminderMethod();
     chooseDay(selectedDay);
     byId('formTitle').textContent = 'Study reminders';
@@ -190,7 +192,7 @@ function renderReminders() {
             google.target = '_blank';
             google.rel = 'noopener';
             google.textContent = 'Add to Google Calendar';
-            card.append(google);
+            if (!window.NEEDS_GOOGLE_ACCOUNT_PROMPT || byId('hasGoogleAccount').checked) card.append(google);
         }
         {
             const edit = document.createElement('button');
@@ -341,10 +343,12 @@ byId('disconnectTelegram').onclick = async () => {
 function updateReminderMethod() {
     const telegram = byId('reminderMethod').value === 'telegram';
     byId('reminderLeadField').hidden = !telegram;
+    byId('googleAccountPrompt').hidden = telegram || !window.NEEDS_GOOGLE_ACCOUNT_PROMPT;
     byId('methodHelp').textContent = telegram
         ? 'Choose when NotePawBot should notify you before study starts.'
         : 'After saving, add the event to your calendar and check its alert. Calendar copies need to be updated separately.';
 }
+byId('hasGoogleAccount').addEventListener('change', renderReminders);
 byId('reminderMethod').addEventListener('change', updateReminderMethod);
 updateReminderMethod();
 
@@ -354,3 +358,5 @@ loadNotes().then(loadReminders).catch(error => {
     byId('saveReminder').disabled = true;
 });
 checkTelegram().catch(error => { byId('telegramStatus').textContent = error.message; });
+
+if (location.hash === '#telegramConnection') document.getElementById('telegramConnection').open = true;

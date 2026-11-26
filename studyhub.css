@@ -2455,3 +2455,9 @@ body.home-custom-active #featureMessage,
         overflow-wrap: anywhere;
     }
 }
+
+.telegram-welcome { margin:auto; width:min(460px,calc(100% - 32px)); max-height:calc(100dvh - 32px); overflow:auto; padding:24px; background:var(--card); color:var(--ink); border:1px solid var(--line); border-radius:18px; }
+.telegram-welcome::backdrop { background:rgba(0,0,0,.5); }
+.telegram-welcome p { margin:16px 0; }
+.telegram-welcome p a { color:var(--primary-dark); text-decoration:underline; }
+.telegram-welcome .actions { flex-wrap:wrap; }

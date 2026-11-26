@@ -52,3 +52,14 @@ function updateToTop() { toTop.classList.toggle('show', window.scrollY > 400); }
 window.addEventListener('scroll', updateToTop, { passive: true });
 updateToTop();
 toTop.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+
+// Read the policy without navigating away or reloading the signup fields.
+const signupPrivacyLink = document.getElementById('signupPrivacyLink');
+const signupPrivacyDialog = document.getElementById('signupPrivacyDialog');
+if (signupPrivacyLink && signupPrivacyDialog && typeof signupPrivacyDialog.showModal === 'function') {
+    signupPrivacyLink.addEventListener('click', event => {
+        event.preventDefault();
+        signupPrivacyDialog.showModal();
+    });
+    signupPrivacyDialog.addEventListener('close', () => signupPrivacyLink.focus());
+}

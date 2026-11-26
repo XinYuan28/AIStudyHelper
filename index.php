@@ -13,6 +13,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!csrf_ok()) {
         $error = 'Your session expired. Please try again.';
+    } elseif ($action === 'signup' && ($_POST['privacy_agree'] ?? '') !== '1') {
+        $error = 'Please agree to the privacy policy before continuing.';
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error = 'Please enter a valid email address.';
     } elseif ($action === 'login') {
@@ -43,6 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $user = null;
             }
             if ($user) {
+                record_privacy_acceptance((int) $user['id']);
                 login_user($email, $user);
                 header('Location: studyhub.php');
                 exit;
@@ -69,10 +72,10 @@ $login    = $mode === 'login';
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet">
 
         <!-- CSS -->
-        <link rel="stylesheet" href="index.css">
+        <link rel="stylesheet" href="index.css?v=<?= filemtime(__DIR__ . '/index.css') ?>">
 
         <!-- JS -->
-        <script src="index.js" defer></script>
+        <script src="index.js?v=<?= filemtime(__DIR__ . '/index.js') ?>" defer></script>
 
         <!-- FAVICON -->
         <link rel="icon" type="image/png" href="Images/AISNH_Cat coloredlogo(S).png">
@@ -137,16 +140,16 @@ $login    = $mode === 'login';
 
                     <!-- CARD FLIP - SIGN-UP/LOGIN -->
                     <!-- FRONT: sign up -->
-                    <form class="signup face front" id="signupFace" method="post" action="index.php#signup" <?= $login ? 'inert' : '' ?>>
+                    <form class="signup face front" id="signupFace" autocomplete="off" method="post" action="index.php#signup" <?= $login ? 'inert' : '' ?>>
                         <input type="hidden" name="action" value="signup">
                         <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
                         <h2>Start studying for free</h2>
                         <?php if ($error && !$login): ?><p class="form-error" role="alert"><?= h($error) ?></p><?php endif; ?>
                         <label for="email">Email</label>
-                        <input type="email" id="email" name="email" placeholder="hello@mail.com" value="<?= !$login ? h($email) : '' ?>" required>
+                        <input type="email" id="email" name="email" autocomplete="off" placeholder="hello@mail.com" value="<?= !$login ? h($email) : '' ?>" required>
                         <label for="password">Password</label>
                         <div class="pw-wrap">
-                            <input type="password" id="password" name="password" placeholder="At least 8 characters" minlength="8" required>
+                            <input type="password" id="password" name="password" autocomplete="new-password" placeholder="At least 8 characters" minlength="8" required>
                             <button type="button" class="eye" data-toggle="password" aria-label="Show password">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                     stroke-linecap="round" stroke-linejoin="round">
@@ -156,6 +159,7 @@ $login    = $mode === 'login';
                             </button>
                         </div>
                         <div class="divider"><span>Already a user? <a href="#" data-auth="login">Login!</a></span></div>
+                        <label class="privacy-agreement" for="signupPrivacy"><input type="checkbox" id="signupPrivacy" name="privacy_agree" value="1" required><span>I agree to the <a href="privacy.php" id="signupPrivacyLink" target="_blank" rel="noopener">privacy policy</a>.</span></label>
                         <button type="submit" class="btn-solid">Create account</button>
                     </form>
 
@@ -286,5 +290,11 @@ $login    = $mode === 'login';
                 <path d="M12 19V5M5 12l7-7 7 7" />
             </svg>
         </button>
+    <dialog id="signupPrivacyDialog" class="signup-privacy-dialog" aria-labelledby="signupPrivacyTitle">
+            <header><h2 id="signupPrivacyTitle">Privacy policy</h2><form method="dialog"><button type="submit" class="btn-outline" autofocus>Back to signup</button></form></header>
+            <div class="signup-privacy-content" tabindex="0" aria-label="Privacy policy text">
+                <?php defined('SUPPORT_EMAIL') || define('SUPPORT_EMAIL', 'support@example.com'); require __DIR__ . '/privacy_content.php'; ?>
+            </div>
+        </dialog>
     </body>
 </html>

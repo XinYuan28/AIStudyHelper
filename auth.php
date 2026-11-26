@@ -3,6 +3,7 @@
 // db.php starts the session (with safe cookie settings) and provides db(), h(),
 // csrf_token(), csrf_field(), csrf_check() and require_login().
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/onboarding.php';
 
 const DEMO_EMAIL    = 'demo@aisnh.com';
 const DEMO_PASSWORD = 'demo1234';
@@ -68,7 +69,14 @@ function create_user(string $email, string $password, ?string $name = null): arr
     $pdo = db();
     $pdo->prepare('INSERT INTO users (username, email, password) VALUES (?, ?, ?)')->execute([$name, $email, $hash]);
 
-    return ['id' => (int) $pdo->lastInsertId(), 'name' => $name, 'email' => $email, 'hash' => $hash];
+    $id = (int) $pdo->lastInsertId();
+    try {
+        $pdo->prepare('INSERT INTO account_onboarding (user_id, telegram_welcome_pending) VALUES (?, 1)')->execute([$id]);
+    } catch (Throwable $error) {
+        $pdo->prepare('DELETE FROM users WHERE id = ?')->execute([$id]);
+        throw $error;
+    }
+    return ['id' => $id, 'name' => $name, 'email' => $email, 'hash' => $hash];
 }
 
 function login_user(string $email, array $user): void
