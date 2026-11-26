@@ -197,3 +197,5 @@ CREATE TABLE IF NOT EXISTS account_onboarding (
  telegram_welcome_pending TINYINT(1) NOT NULL DEFAULT 0,
  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+ALTER TABLE quiz_results ADD COLUMN marks_earned INT UNSIGNED NULL, ADD COLUMN marks_possible INT UNSIGNED NULL;

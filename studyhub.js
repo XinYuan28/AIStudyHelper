@@ -9,11 +9,6 @@ function norm(s) {
     return String(s).toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, '').replace(/\s+/g, ' ').trim();
 }
 
-function isTextCorrect(q, typed) {
-    const t = norm(typed);
-    return !!t && [q.answer].concat(q.accept || []).some(a => norm(a) === t);
-}
-
 // what to show as "the correct answer" for either question type
 function correctText(q) {
     return q.type === 'text' ? q.answer : q.options[q.answer];
@@ -1748,6 +1743,7 @@ function startQuiz(questions, meta) {
         streak = 0,
         best = 0;
     const wrong = [];
+    let earnedMarks = 0;
 
     // A note can have several files. When it has more than one, each question should say which file it came from.
     const files = (current && current.files) || [];
@@ -1778,21 +1774,27 @@ function startQuiz(questions, meta) {
         next.style.marginTop = '1rem';
 
         // shared by both question types
-        function finish(ok, picked) {
+        function finish(ok, picked, marks = ok ? 10 : 0, feedback = '') {
+            earnedMarks += marks;
             if (ok) {
-                score += 10 + streak * 2;
+                score += marks + (marks === 10 ? streak * 2 : 0);
                 streak++;
                 best = Math.max(best, streak);
             } else {
                 streak = 0;
                 wrong.push(Object.assign({}, q, {
+                    marks: marks,
                     picked: picked,
                     source: fileOf(q, i)
                 }));
             }
             fb.className = 'feedback ' + (ok ? 'ok' : 'no');
             fb.textContent = ok ? 'Correct!' : (q.type === 'text' ? 'Not quite. Correct answer: ' + q.answer : 'Not quite.');
-            fb.appendChild(el('span', '', q.explain));
+            if(q.type === 'text') {
+                fb.textContent = marks + '/10 marks · ' + (marks >= 5 ? 'No revision required.' : 'Revision recommended.');
+                fb.appendChild(el('span', '', feedback));
+                if(marks < 10) fb.appendChild(el('span', '', 'Reference answer: ' + q.answer));
+            }
             fb.hidden = false;
             next.hidden = false;
             next.focus();
@@ -1807,16 +1809,18 @@ function startQuiz(questions, meta) {
             const check = el('button', 'btn small', 'Check');
             check.type = 'button';
 
-            function submitText() {
-                if (!input.value.trim()) {
-                    input.focus();
-                    return;
-                }
-                const ok = isTextCorrect(q, input.value);
-                input.disabled = true;
-                check.disabled = true;
-                input.classList.add(ok ? 'correct' : 'wrong');
-                finish(ok, input.value.trim());
+            async function submitText() {
+                if (input.disabled || !input.value.trim()) return;
+                input.disabled = true; check.disabled = true; check.textContent = 'Marking...';
+                try {
+                    const grade = await apiCall('grade_written', { quiz_id:q.quiz_id, question_index:q.question_index, answer:input.value.trim() }, 'POST');
+                    const ok = grade.marks >= 5;
+                    input.classList.add(ok ? 'correct' : 'wrong');
+                    finish(ok, input.value.trim(), grade.marks, grade.feedback);
+                } catch(error) {
+                    input.disabled=false; check.disabled=false;
+                    fb.className='feedback no';fb.textContent=error.message;fb.hidden=false;
+                } finally {check.textContent='Check';}
             }
             check.addEventListener('click', submitText);
             input.addEventListener('keydown', e => {
@@ -1854,8 +1858,8 @@ function startQuiz(questions, meta) {
         const right = questions.length - wrong.length;
         const card = el('div', 'card score');
         card.appendChild(el('span', 'tag', 'Quiz result'));
-        card.appendChild(el('div', 'big', right + ' / ' + questions.length));
-        card.appendChild(el('p', '', score + ' points · best streak ' + best));
+        card.appendChild(el('div', 'big', earnedMarks + ' / ' + (questions.length * 10) + ' marks'));
+        card.appendChild(el('p', '', Math.round(earnedMarks / (questions.length * 10) * 100) + '% · ' + score + ' points · best streak ' + best));
         let weakNames = [];
 
         if (wrong.length) {
@@ -1887,14 +1891,14 @@ function startQuiz(questions, meta) {
             const weak = el('div', 'weak-topics');
             weak.appendChild(el('h3', '', 'Weak topics'));
             weak.appendChild(el('p', 'section-sub', multi ?
-                'The topics you got wrong most often, across all ' + files.length + ' files in this note.' :
-                'The topics you got wrong most often.'));
+                'The topics with answers below half marks, across all ' + files.length + ' files in this note.' :
+                'The topics with the most answers below half marks.'));
             ranked.forEach(s => {
                 const row = el('div', 'topic-row' + (s.wrong === most ? ' top' : ''));
                 const head = el('div', 'topic-head');
                 head.appendChild(el('b', '', s.topic));
                 if (s.wrong === most) head.appendChild(el('span', 'weakest', 'Weakest'));
-                head.appendChild(el('small', '', s.wrong + ' of ' + s.total + ' wrong'));
+                head.appendChild(el('small', '', s.wrong + ' of ' + s.total + ' below half marks'));
                 const bar = el('div', 'topic-bar');
                 const fill = el('i');
                 fill.style.width = Math.round(s.wrong / s.total * 100) + '%';
@@ -1913,7 +1917,7 @@ function startQuiz(questions, meta) {
             /* WEAK PARTS: the individual questions the student got wrong */
             const review = el('div', 'review');
             review.appendChild(el('h3', '', 'Weak parts'));
-            review.appendChild(el('p', 'section-sub', 'The questions you got wrong.'));
+            review.appendChild(el('p', 'section-sub', 'Questions scoring below half marks.'));
             wrong.forEach(w => {
                 const it = el('div', 'review-item');
                 it.appendChild(el('b', '', w.q));
@@ -1924,7 +1928,7 @@ function startQuiz(questions, meta) {
             });
             card.appendChild(review);
         } else {
-            card.appendChild(el('p', '', 'Perfect score! No mistakes to review.'));
+            card.appendChild(el('p', '', earnedMarks === questions.length * 10 ? 'Perfect score! No revision needed.' : 'Every answer earned at least half marks. No revision needed.'));
         }
 
         const actions = el('div', 'actions');
@@ -1947,6 +1951,7 @@ function startQuiz(questions, meta) {
                 total: questions.length,
                 correct: right,
                 points: score,
+                marks_earned: earnedMarks,
                 best_streak: best,
                 difficulty: meta.difficulty.toLowerCase(),
                 qtype: meta.type,
@@ -2015,38 +2020,23 @@ async function loadQuizHistory() {
             return;
         }
         results.forEach(r => list.append(el('li', '', r.topic + ' · ' + r.correct_answers + '/' +
-            r.total_questions + ' correct · ' + r.points + ' points · ' + r.created_at)));
+            r.total_questions + ' meeting half marks · ' + (r.marks_earned == null ? '' : r.marks_earned + '/' + r.marks_possible + ' marks · ') + r.points + ' points · ' + r.created_at)));
     } catch (err) {
         list.replaceChildren(el('li', '', err.message));
     }
 }
 
-// the slider always runs 5 to 30; a quiz uses as many questions as the note actually has (up to the number chosen)
+// Generate a fresh set matching the requested count rather than limiting the saved bank.
 function updateQuizCount() {
     $('numQuestions').dispatchEvent(new Event('input'));
-    const n = currentQuestions.length;
-    const m = $('customMsg');
-    if (homeCustom && !customNoteId) {
-        m.textContent = lessons.length ? 'Choose a saved note first. Then you can set up the quiz.' : 'Upload some study materials first, then you can make a quiz from them.';
-        m.classList.remove('warn');
-        m.hidden = false;
-        return;
-    }
-    if (!n) {
-        m.textContent = 'No quiz questions were found for this note yet, so a quiz cannot start.';
-        m.classList.add('warn');
-    } else if (n < 30) {
-        m.textContent = 'This note has ' + n + ' questions ready, so a quiz will use up to ' + n + '.';
-        m.classList.remove('warn');
-    } else {
-        m.hidden = true;
-        return;
-    }
-    m.hidden = false;
+    const missing = homeCustom && !customNoteId;
+    $('customMsg').textContent = missing ? 'Choose a saved note first.' : 'A fresh set of unique questions will be generated for your selected total.';
+    $('customMsg').hidden=false;$('customMsg').classList.remove('warn');
 }
 
 function customiseQuizQuestions(source, settings) {
     if (!Number.isInteger(settings.sections) || settings.sections < 1 || settings.sections > 5) throw new Error('Choose between 1 and 5 sections.');
+    if(source.length < settings.count) throw new Error('The complete question set was not generated. Please retry.');
     let questions = source.slice();
     if (settings.order === 'shuffle') {
         for (let i = questions.length - 1; i > 0; i--) {
@@ -2061,7 +2051,7 @@ function customiseQuizQuestions(source, settings) {
             throw new Error('Multiple-choice and written counts must add up to ' + settings.count + '.');
         }
         if (questions.length < settings.count) {
-            throw new Error('This note has ' + questions.length + ' questions. Lower the total before choosing the dual counts.');
+            throw new Error('The complete question set was not generated. Please retry.');
         }
     }
     if (settings.sections > questions.length) {
@@ -2076,7 +2066,7 @@ function customiseQuizQuestions(source, settings) {
     });
 }
 
-$('customForm').addEventListener('submit', e => {
+$('customForm').addEventListener('submit', async e => {
     e.preventDefault();
     const f = new FormData(e.target);
     const settings = {
@@ -2093,16 +2083,18 @@ $('customForm').addEventListener('submit', e => {
         $('customNote').focus();
         return;
     }
-    if (!currentQuestions.length) {
-        updateQuizCount();
-        return;
-    }
+    const button = e.target.querySelector('[type=submit]');
+    if(button.disabled)return;
+    if(settings.type === 'dual' && (settings.mcq < 1 || settings.written < 1 || settings.mcq + settings.written !== settings.count)){ $('customMsg').hidden=false;$('customMsg').textContent='Multiple-choice and written counts must add up to '+settings.count+'.';return; }
+    const requestedNoteId = homeCustom ? customNoteId : current.id;
+    button.disabled=true;button.textContent='Generating unique questions...';
     try {
-        const questions = customiseQuizQuestions(currentQuestions, settings);
+        const generated = await apiCall('generate_custom_quiz',{note_id:requestedNoteId,count:settings.count,difficulty:settings.difficulty.toLowerCase()},'POST');
+        const questions = customiseQuizQuestions(generated.questions, settings);
         if (homeCustom) {
             // the note is now chosen: open it like a normal note (so results, files and "notes from my mistakes" work), then start the quiz
             notesText = customNotesText;
-            const picked = customNoteId;
+            const picked = requestedNoteId;
             openLesson(picked, true);
             if (!current) return;
         }
@@ -2111,7 +2103,7 @@ $('customForm').addEventListener('submit', e => {
         $('customMsg').textContent = error.message;
         $('customMsg').classList.add('warn');
         $('customMsg').hidden = false;
-    }
+    } finally {button.disabled=false;button.textContent='Start quiz';}
 });
 
 /* TEXT-TO-SPEECH

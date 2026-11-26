@@ -22,6 +22,7 @@ ini_set('display_errors', '0'); // warnings must never break the JSON (set befor
 require_once __DIR__ . '/auth.php';   // also loads db.php
 require_once __DIR__ . '/extract.php';
 require_once __DIR__ . '/ai.php';
+require_once __DIR__ . '/quiz_backend.php';
 require_once __DIR__ . '/telegram.php';
 require_once __DIR__ . '/reminders_backend.php';
 require_once __DIR__ . '/trash_backend.php';
@@ -59,7 +60,7 @@ if ($uid < 1) {
 }
 
 $action = $_GET['action'] ?? '';
-$writes = ['create', 'rename', 'delete', 'save_notes', 'save_quiz',
+$writes = ['create', 'rename', 'delete', 'save_notes', 'save_quiz', 'generate_custom_quiz', 'grade_written',
     'create_folder', 'move_note', 'delete_folder_notes', 'delete_folder',
     'create_reminder', 'edit_reminder', 'cancel_reminder', 'delete_reminder',
     'connect_telegram', 'disconnect_telegram', 'restore_note', 'permanently_delete_note'];
@@ -130,7 +131,7 @@ function int_in(string $key, int $min, int $max): int
 // the note must belong to this user and not be deleted
 function own_note(int $id, int $uid): ?array
 {
-    $st = db()->prepare('SELECT id, title FROM notes WHERE id = ? AND user_id = ? AND deleted_at IS NULL');
+    $st = db()->prepare('SELECT id, title, content FROM notes WHERE id = ? AND user_id = ? AND deleted_at IS NULL');
     $st->execute([$id, $uid]);
     return $st->fetch() ?: null;
 }
@@ -422,9 +423,38 @@ switch ($action) {
         }
         out();
 
+    case 'generate_custom_quiz':
+        set_time_limit(900);
+        $noteId=int_in('note_id',1,PHP_INT_MAX);$note=own_note($noteId,$uid);
+        if(!$note)fail(404,'That note could not be found.');
+        $count=int_in('count',5,30);$difficulty=(string)($_POST['difficulty']??'medium');
+        if(!in_array($difficulty,['easy','medium','hard'],true))fail(400,'Choose a valid difficulty.');
+        try{$questions=generate_custom_questions((string)$note['content'],$count,$difficulty);}
+        catch(AiException $e){fail(502,'Could not generate the complete unique question set. Please retry.');}
+        $key=bin2hex(random_bytes(16));
+        foreach(($_SESSION['quiz_runs']??[]) as $id=>$run)if($run['expires']<time())unset($_SESSION['quiz_runs'][$id]);
+        if(count($_SESSION['quiz_runs']??[])>=5)array_shift($_SESSION['quiz_runs']);
+        $_SESSION['quiz_runs'][$key]=['note_id'=>$noteId,'questions'=>$questions,'expires'=>time()+7200,'grades'=>[]];
+        foreach($questions as $i=>&$q){$q['quiz_id']=$key;$q['question_index']=$i;}unset($q);
+        out(['questions'=>$questions]);
+
+    case 'grade_written':
+        set_time_limit(150);
+        $key=(string)($_POST['quiz_id']??'');$index=int_in('question_index',0,29);
+        $run=$_SESSION['quiz_runs'][$key]??null;
+        if(!$run||$run['expires']<time()||!isset($run['questions'][$index]))fail(409,'This quiz expired. Generate a new quiz.');
+        if(!own_note($run['note_id'],$uid))fail(404,'That note could not be found.');
+        $typed=$_POST['answer']??'';
+        if(!is_string($typed)||trim($typed)===''||mb_strlen($typed)>4000)fail(400,'Enter an answer of up to 4000 characters.');
+        $cache=$index.':'.hash('sha256',$typed);
+        if(isset($run['grades'][$cache]))out($run['grades'][$cache]);
+        try{$grade=grade_written_answer($run['questions'][$index],trim($typed));}
+        catch(AiException $e){fail(502,'Could not mark this answer right now. Please try Check again.');}
+        $_SESSION['quiz_runs'][$key]['grades'][$cache]=$grade;out($grade);
+
     case 'quiz_history':
         $st = db()->prepare(
-            'SELECT topic, correct_answers, total_questions, points, created_at
+            'SELECT topic, correct_answers, total_questions, points, marks_earned, marks_possible, created_at
              FROM quiz_results WHERE user_id = ? ORDER BY created_at DESC, id DESC LIMIT 20'
         );
         $st->execute([$uid]);
@@ -609,6 +639,8 @@ switch ($action) {
         $total   = int_in('total', 1, 100);
         $correct = int_in('correct', 0, $total);
         $points  = int_in('points', 0, 1000000);
+        $marksPossible=$total*10;
+        $marksEarned=isset($_POST['marks_earned'])?int_in('marks_earned',0,$marksPossible):$correct*10;
         $streak  = int_in('best_streak', 0, $total);
         $diff    = strtolower((string) ($_POST['difficulty'] ?? ''));
         $diff    = in_array($diff, ['easy', 'medium', 'hard'], true) ? $diff : 'medium';
@@ -620,9 +652,9 @@ switch ($action) {
 
         db()->prepare(
             'INSERT INTO quiz_results
-                (user_id, note_id, topic, difficulty, question_type, total_questions, correct_answers, points, best_streak, weak_areas, section_count)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-        )->execute([$uid, $noteId, mb_substr($note['title'], 0, 255), $diff, $qtype, $total, $correct, $points, $streak, $weak === '' ? null : $weak, $sections]);
+                (user_id, note_id, topic, difficulty, question_type, total_questions, correct_answers, points, best_streak, weak_areas, section_count, marks_earned, marks_possible)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        )->execute([$uid, $noteId, mb_substr($note['title'], 0, 255), $diff, $qtype, $total, $correct, $points, $streak, $weak === '' ? null : $weak, $sections, $marksEarned, $marksPossible]);
         out(['id' => (int) db()->lastInsertId()]);
 
     default:

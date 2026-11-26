@@ -1,0 +1,1 @@
+ALTER TABLE quiz_results ADD COLUMN marks_earned INT UNSIGNED NULL, ADD COLUMN marks_possible INT UNSIGNED NULL;
