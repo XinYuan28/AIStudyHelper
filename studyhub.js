@@ -1,6 +1,19 @@
 /* Study Hub logic. Needs window.STUDYHUB_USER and window.STUDYHUB_CSRF (set by studyhub.php first).
    Notes, files and quiz results are saved in the database through api.php. */
 
+// Per-account, per-tab drafts preserve an active revision session across refreshes.
+function revisionDraftKey(kind, noteId) { return 'studyhub:' + window.STUDYHUB_UID + ':' + kind + ':' + noteId; }
+function readRevisionDraft(kind, noteId) {
+    try { const value=JSON.parse(sessionStorage.getItem(revisionDraftKey(kind,noteId)) || 'null');
+        if(!value || value.expires < Date.now()) return null;
+        return value;
+    } catch { return null; }
+}
+function writeRevisionDraft(kind, noteId, value) {
+    if(!noteId || !window.STUDYHUB_UID) return;
+    try { sessionStorage.setItem(revisionDraftKey(kind,noteId), JSON.stringify({...value,expires:Date.now()+2*60*60*1000})); } catch {}
+}
+
 /* HELPERS */
 const $ = id => document.getElementById(id);
 
@@ -1016,11 +1029,15 @@ function openLesson(id, fresh) {
             const want = pendingPanel; // 'custom' or 'tts' when we came back from the Game Quiz page
             pendingPanel = '';
             if (stillHere && want === 'game') {
+                const draft=readRevisionDraft('quiz',openedId);
+                if(draft && Array.isArray(draft.questions) && draft.questions.length) { startQuiz(draft.questions,draft.meta,draft); return; }
                 startQuiz(currentQuestions.slice(0, 8));
                 return;
             }
             if (stillHere && r.content) {
-                renderNotes(parseNotes(r.content), r.mode === 'personalised' ? 'Focus notes made from your quiz mistakes.' : 'Generated from your study materials.', '');
+                const draft = want === 'notes' ? readRevisionDraft('notes',openedId) : null;
+                if(draft && Array.isArray(draft.sections)) renderNotes(draft.sections,draft.lead,draft.tag);
+                else renderNotes(parseNotes(r.content), r.mode === 'personalised' ? 'Focus notes made from your quiz mistakes.' : 'Generated from your study materials.', '');
                 showPanel(want === 'custom' || want === 'tts' ? want : 'notes');
             } else if (stillHere && (want === 'custom' || want === 'tts')) {
                 showPanel(want);
@@ -1035,6 +1052,7 @@ function openLesson(id, fresh) {
 
 function showPanel(name) {
     if (name !== 'tts') stopSpeech();
+    if(current) setNoteUrl(current.id, name);
     panels.forEach(p => $('panel-' + p).hidden = (p !== name));
     document.querySelectorAll('.side-item').forEach(b => b.classList.toggle('active', b.dataset.panel === name));
     window.scrollTo({
@@ -1643,6 +1661,7 @@ function displayMd(t) {
 }
 
 function renderNotes(sections, lead, tag) {
+    if(current) writeRevisionDraft('notes',current.id,{sections,lead,tag});
     currentSections = sections;
     const body = $('notesBody');
     body.textContent = '';
@@ -1719,7 +1738,7 @@ function buildNotes(mode, wrong) {
 
 /* GAME QUIZ AND CUSTOM QUIZ */
 // meta = the Customise Quiz choices {difficulty: 'Easy'|'Medium'|'Hard', type: 'mcq'|'text'}; they are saved with the result
-function startQuiz(questions, meta) {
+function startQuiz(questions, meta, restored = null) {
     meta = Object.assign({
         difficulty: 'Medium',
         type: 'mcq',
@@ -1742,8 +1761,16 @@ function startQuiz(questions, meta) {
         score = 0,
         streak = 0,
         best = 0;
-    const wrong = [];
-    let earnedMarks = 0;
+    const wrong = restored?.wrong || [];
+    let earnedMarks = restored?.earnedMarks || 0;
+    const responses = restored?.responses || {};
+    let typed = restored?.typed || '';
+    let resultSaved = restored?.resultSaved || false;
+    const attemptKey = restored?.attemptKey || crypto.randomUUID().replaceAll('-', '');
+    if(restored){i=restored.i;score=restored.score;streak=restored.streak;best=restored.best;}
+    const quizNoteId=current?.id;
+    function persistQuiz(){writeRevisionDraft('quiz',quizNoteId,{questions,meta,i,score,streak,best,wrong,earnedMarks,responses,typed,resultSaved,attemptKey});}
+    persistQuiz();
 
     // A note can have several files. When it has more than one, each question should say which file it came from.
     const files = (current && current.files) || [];
@@ -1774,7 +1801,8 @@ function startQuiz(questions, meta) {
         next.style.marginTop = '1rem';
 
         // shared by both question types
-        function finish(ok, picked, marks = ok ? 10 : 0, feedback = '') {
+        function finish(ok, picked, marks = ok ? 10 : 0, feedback = '', restoring = false) {
+            if(!restoring) {
             earnedMarks += marks;
             if (ok) {
                 score += marks + (marks === 10 ? streak * 2 : 0);
@@ -1787,6 +1815,10 @@ function startQuiz(questions, meta) {
                     picked: picked,
                     source: fileOf(q, i)
                 }));
+            }
+            responses[i]={ok,picked,marks,feedback};
+            typed='';
+            persistQuiz();
             }
             fb.className = 'feedback ' + (ok ? 'ok' : 'no');
             fb.textContent = ok ? 'Correct!' : (q.type === 'text' ? 'Not quite. Correct answer: ' + q.answer : 'Not quite.');
@@ -1805,6 +1837,8 @@ function startQuiz(questions, meta) {
             input.type = 'text';
             input.placeholder = 'Type your answer';
             input.autocomplete = 'off';
+            input.value=typed;
+            input.addEventListener('input',()=>{typed=input.value;persistQuiz();});
             input.setAttribute('aria-label', 'Your answer');
             const check = el('button', 'btn small', 'Check');
             check.type = 'button';
@@ -1847,8 +1881,14 @@ function startQuiz(questions, meta) {
         }
         card.append(opts, fb, next);
         area.append(top, card);
+        if(responses[i]) {
+            const answer=responses[i];
+            if(q.type==='text'){const input=opts.querySelector('input');input.value=answer.picked;input.disabled=true;opts.querySelector('button').disabled=true;input.classList.add(answer.ok?'correct':'wrong');}
+            else {opts.querySelectorAll('.opt').forEach((button,index)=>{button.disabled=true;if(index===q.answer)button.classList.add('correct');else if(index===answer.picked)button.classList.add('wrong');});}
+            finish(answer.ok,answer.picked,answer.marks,answer.feedback,true);
+        }
         next.addEventListener('click', () => {
-            i++;
+            i++;typed='';persistQuiz();
             i < questions.length ? renderQ() : renderResult();
         });
     }
@@ -1944,9 +1984,10 @@ function startQuiz(questions, meta) {
 
         // save this attempt in the quiz_results table
         if (current) {
-            const msg = el('p', 'note-msg', 'Saving your result…');
+            const msg = el('p', 'note-msg', resultSaved ? 'Your result is saved.' : 'Saving your result…');
             card.appendChild(msg);
-            apiCall('save_quiz', {
+            if(!resultSaved) apiCall('save_quiz', {
+                attempt_key: attemptKey,
                 note_id: current.id,
                 total: questions.length,
                 correct: right,
@@ -1958,6 +1999,7 @@ function startQuiz(questions, meta) {
                 sections: meta.sections,
                 weak_areas: weakNames.join(', ')
             }, 'POST').then(() => {
+                resultSaved=true;persistQuiz();
                 msg.textContent = 'Your result is saved.';
                 loadQuizHistory();
             }).catch(err => {
@@ -1968,7 +2010,7 @@ function startQuiz(questions, meta) {
         area.appendChild(card);
     }
 
-    renderQ();
+    if(i >= questions.length) renderResult(); else renderQ();
     showPanel('game');
 }
 
@@ -2414,7 +2456,7 @@ if (deepNote) {
         const l = lessons.find(x => x.id === deepNote);
         if (l) {
             const want = new URLSearchParams(location.search).get('panel');
-            pendingPanel = ['game', 'custom', 'tts'].includes(want) ? want : '';
+            pendingPanel = ['game', 'custom', 'tts', 'notes'].includes(want) ? want : '';
             openLesson(l.id);
         } else {
             setNoteUrl(0);

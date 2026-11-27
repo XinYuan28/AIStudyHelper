@@ -420,6 +420,7 @@ $initial  = strtoupper(mb_substr($userName, 0, 1));
         <script>
             // passed from PHP to studyhub.js: the logged-in user's name and the token api.php checks on every save
             window.STUDYHUB_USER = <?= json_encode($userName) ?>;
+            window.STUDYHUB_UID = <?= (int) current_user_id() ?>;
             window.STUDYHUB_UPLOAD_BYTES = <?= upload_file_limit() ?>;
             window.STUDYHUB_CSRF = <?= json_encode(csrf_token()) ?>;
         </script>

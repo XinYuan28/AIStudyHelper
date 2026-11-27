@@ -631,6 +631,9 @@ switch ($action) {
         out(['id' => $id, 'ts' => time()]);
 
     case 'save_quiz':
+        $attemptKey=$_POST['attempt_key']??'';
+        if(!is_string($attemptKey)||($attemptKey!==''&&!preg_match('/^[a-f0-9]{32}$/D',$attemptKey)))fail(400,'Invalid quiz attempt.');
+        if($attemptKey!=='' && isset($_SESSION['saved_quiz_attempts'][$uid][$attemptKey]))out(['id'=>$_SESSION['saved_quiz_attempts'][$uid][$attemptKey]]);
         $noteId = int_in('note_id', 1, PHP_INT_MAX);
         $note   = own_note($noteId, $uid);
         if (!$note) {
@@ -655,7 +658,12 @@ switch ($action) {
                 (user_id, note_id, topic, difficulty, question_type, total_questions, correct_answers, points, best_streak, weak_areas, section_count, marks_earned, marks_possible)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         )->execute([$uid, $noteId, mb_substr($note['title'], 0, 255), $diff, $qtype, $total, $correct, $points, $streak, $weak === '' ? null : $weak, $sections, $marksEarned, $marksPossible]);
-        out(['id' => (int) db()->lastInsertId()]);
+        $savedId=(int)db()->lastInsertId();
+        if($attemptKey!==''){
+            $_SESSION['saved_quiz_attempts'][$uid][$attemptKey]=$savedId;
+            if(count($_SESSION['saved_quiz_attempts'][$uid])>100)array_shift($_SESSION['saved_quiz_attempts'][$uid]);
+        }
+        out(['id' => $savedId]);
 
     default:
         fail(400, 'Unknown action.');
